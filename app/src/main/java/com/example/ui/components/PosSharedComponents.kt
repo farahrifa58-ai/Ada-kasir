@@ -119,10 +119,12 @@ import androidx.core.content.ContextCompat
 import com.example.R
 import com.example.data.model.PosTransaction
 import com.example.data.model.StoreSettings
+import com.example.ui.theme.AppStrings
 import com.example.ui.theme.BrandBlue
 import com.example.ui.theme.BrandBlueDark
 import com.example.ui.theme.BrandGreen
 import com.example.ui.theme.JetBrainsMonoFontFamily
+import com.example.ui.theme.LocalAppCurrency
 import com.example.ui.theme.LocalAppStrings
 import com.example.ui.theme.MenuCashierBgDark
 import com.example.ui.theme.MenuCashierBgLight
@@ -156,7 +158,22 @@ data class StoreBusinessIconOption(
     val labelId: String,
     val labelEn: String,
     val icon: ImageVector
-)
+) {
+    fun label(strings: AppStrings): String = when (key) {
+        "storefront" -> strings.bizIconStorefront
+        "cafe" -> strings.bizIconCafe
+        "restaurant" -> strings.bizIconRestaurant
+        "fastfood" -> strings.bizIconFastFood
+        "grocery" -> strings.bizIconGrocery
+        "bakery" -> strings.bizIconBakery
+        "pharmacy" -> strings.bizIconPharmacy
+        "fashion" -> strings.bizIconFashion
+        "electronics" -> strings.bizIconElectronics
+        "laundry" -> strings.bizIconLaundry
+        "service" -> strings.bizIconService
+        else -> strings.bizIconStorefront
+    }
+}
 
 val StoreBusinessIcons: List<StoreBusinessIconOption> = listOf(
     StoreBusinessIconOption("storefront", "Toko", "Shop", Icons.Rounded.Storefront),
@@ -204,6 +221,7 @@ fun StoreProfileAvatar(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null
 ) {
+    val strings = LocalAppStrings.current
     val bitmap = remember(photoData) { ImageUtils.decodeDataUriToBitmap(photoData) }
     val baseModifier = modifier
         .size(size)
@@ -214,7 +232,7 @@ fun StoreProfileAvatar(
     if (bitmap != null) {
         Image(
             bitmap = bitmap.asImageBitmap(),
-            contentDescription = "Store profile photo",
+            contentDescription = strings.storePhotoCd,
             contentScale = ContentScale.Crop,
             modifier = baseModifier
         )
@@ -226,7 +244,7 @@ fun StoreProfileAvatar(
         ) {
             Icon(
                 imageVector = storeBusinessIconVector(storeIconKey),
-                contentDescription = "Store business icon",
+                contentDescription = strings.businessIconCd,
                 tint = Color.White,
                 modifier = Modifier.size(size * 0.56f)
             )
@@ -234,7 +252,7 @@ fun StoreProfileAvatar(
     } else {
         Image(
             painter = painterResource(id = R.drawable.img_store_default),
-            contentDescription = "Default store photo",
+            contentDescription = strings.storePhotoCd,
             contentScale = ContentScale.Crop,
             modifier = baseModifier
         )
@@ -416,7 +434,7 @@ fun CenterGridNavigationDock(
                     }
 
                     Text(
-                        text = "ADA KASIR",
+                        text = strings.appName,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(start = 12.dp, end = 8.dp)
@@ -559,7 +577,7 @@ fun FiveMenuGridOverlay(
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = "ADA KASIR • Rafline Dev",
+                                    text = "${strings.appName} • ${strings.developerBy}",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -744,6 +762,7 @@ fun ReceiptDialog(
 ) {
     val context = LocalContext.current
     val strings = LocalAppStrings.current
+    val currency = LocalAppCurrency.current
     val scope = rememberCoroutineScope()
     var paperWidth by remember(defaultPaperWidthMm) {
         mutableStateOf(if (defaultPaperWidthMm == 80) PaperWidth.MM_80 else PaperWidth.MM_58)
@@ -752,7 +771,7 @@ fun ReceiptDialog(
     var pairedPrinters by remember { mutableStateOf<List<PairedPrinter>>(emptyList()) }
     var isPrinting by remember { mutableStateOf(false) }
 
-    val receiptText = remember(transaction, store, paperWidth, language) {
+    val receiptText = remember(transaction, store, paperWidth, language, strings, currency.code) {
         ReceiptHelper.buildPlainTextReceipt(
             transaction = transaction,
             store = store,
@@ -775,7 +794,7 @@ fun ReceiptDialog(
                 }
                 Toast.makeText(context, strings.pdfSavedMsg, Toast.LENGTH_SHORT).show()
             } catch (e: Exception) {
-                Toast.makeText(context, e.localizedMessage ?: "PDF error", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, e.localizedMessage ?: strings.errSaveFailed, Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -885,7 +904,7 @@ fun ReceiptDialog(
                                 } else {
                                     Image(
                                         painter = painterResource(id = R.drawable.ada_kasir_logo),
-                                        contentDescription = "ADA KASIR",
+                                        contentDescription = strings.appName,
                                         contentScale = ContentScale.Fit,
                                         modifier = Modifier
                                             .size(48.dp)
@@ -946,7 +965,7 @@ fun ReceiptDialog(
                 ) {
                     FilledTonalButton(
                         onClick = {
-                            pdfSaverLauncher.launch("Struk_${transaction.transactionNumber}.pdf")
+                            pdfSaverLauncher.launch("${strings.receiptFilePrefix}_${transaction.transactionNumber}.pdf")
                         },
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
                         modifier = Modifier
@@ -1055,7 +1074,7 @@ fun ReceiptDialog(
                             val pdf = ReceiptHelper.generateReceiptPdf(
                                 context, transaction, store, strings, language, paperWidth
                             )
-                            ReceiptHelper.printViaAndroidSystem(context, pdf, "Struk_${transaction.transactionNumber}")
+                            ReceiptHelper.printViaAndroidSystem(context, pdf, "${strings.receiptFilePrefix}_${transaction.transactionNumber}")
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {

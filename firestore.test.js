@@ -296,6 +296,14 @@ test("Extended StoreSettings: business icon, tax/discount defaults, receipt pref
   await assertFails(settingsRef.update({ defaultTaxType: "INVALID", updatedAt: nowTs() }));
   await assertFails(settingsRef.update({ receiptNumberPrefix: "", updatedAt: nowTs() }));
   await assertFails(settingsRef.update({ showReceiptOperatingHours: "yes", updatedAt: nowTs() }));
+
+  // Multi-language and multi-currency validation
+  await assertSucceeds(settingsRef.update({ language: "ja", currencyCode: "JPY", updatedAt: nowTs() }));
+  await assertSucceeds(settingsRef.update({ language: "ru", currencyCode: "RUB", updatedAt: nowTs() }));
+  await assertSucceeds(settingsRef.update({ language: "en_au", currencyCode: "AUD", updatedAt: nowTs() }));
+  await assertSucceeds(settingsRef.update({ language: "fr", currencyCode: "EUR", updatedAt: nowTs() }));
+  await assertFails(settingsRef.update({ language: "xx_invalid", updatedAt: nowTs() }));
+  await assertFails(settingsRef.update({ currencyCode: "ZZZ", updatedAt: nowTs() }));
 });
 
 

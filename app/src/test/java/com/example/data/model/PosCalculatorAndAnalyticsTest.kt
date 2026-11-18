@@ -1,5 +1,6 @@
 package com.example.data.model
 
+import com.example.ui.theme.tutorialStepsList
 import com.example.util.AnalyticsCalculator
 import com.example.util.SalesReportCalculator
 import org.junit.Assert.assertEquals
@@ -386,6 +387,119 @@ class PosCalculatorAndAnalyticsTest {
     @Test
     fun decimalPresets_containsExpectedSixOptions() {
         assertEquals(listOf(0.25, 0.5, 1.0, 2.0, 3.0, 5.0), ProductUnit.decimalPresets)
+    }
+
+    @Test
+    fun appLanguageCatalog_coversAllSixRegionsAndEveryAppStringsFieldIsNonBlankForAll23Languages() {
+        val languages = AppLanguageCatalog.all
+        assertEquals(23, languages.size)
+        val regions = languages.map { it.region }.toSet()
+        assertEquals(LocalizationRegion.entries.toSet(), regions)
+
+        val stringGetters = com.example.ui.theme.AppStrings::class.java.methods.filter { method ->
+            method.parameterCount == 0 && method.returnType == String::class.java && method.name.startsWith("get")
+        }
+        org.junit.Assert.assertTrue("Expected AppStrings properties via reflection", stringGetters.size > 300)
+
+        languages.forEach { option ->
+            val strings = com.example.ui.theme.appStringsForLanguage(option.code)
+            stringGetters.forEach { getter ->
+                val value = getter.invoke(strings) as? String
+                org.junit.Assert.assertFalse(
+                    "Blank string property ${getter.name} for language ${option.code}",
+                    value.isNullOrBlank()
+                )
+            }
+            val steps = strings.tutorialStepsList()
+            assertEquals("Expected 6 tutorial steps for ${option.code}", 6, steps.size)
+            steps.forEach { (title, body) ->
+                org.junit.Assert.assertTrue("Blank tutorial title for ${option.code}", title.isNotBlank())
+                org.junit.Assert.assertTrue("Blank tutorial body for ${option.code}", body.isNotBlank())
+            }
+            ExpenseCategory.entries.forEach { cat ->
+                org.junit.Assert.assertTrue(
+                    "Blank expense category ${cat.name} for ${option.code}",
+                    cat.label(strings).isNotBlank()
+                )
+            }
+            com.example.ui.components.StoreBusinessIcons.forEach { iconOpt ->
+                org.junit.Assert.assertTrue(
+                    "Blank store icon label ${iconOpt.key} for ${option.code}",
+                    iconOpt.label(strings).isNotBlank()
+                )
+            }
+        }
+    }
+
+    @Test
+    fun nonIndonesianLanguages_overrideMenuAndPrimaryUiStringsAndReceipts() {
+        val idStrings = com.example.ui.theme.appStringsForLanguage("id")
+        val nonIndonesian = AppLanguageCatalog.all.filter { it.code != "id" }
+        assertEquals(22, nonIndonesian.size)
+
+        nonIndonesian.forEach { lang ->
+            val strings = com.example.ui.theme.appStringsForLanguage(lang.code)
+            org.junit.Assert.assertNotEquals(
+                "menuSettings not translated for ${lang.code}",
+                idStrings.menuSettings,
+                strings.menuSettings
+            )
+            org.junit.Assert.assertNotEquals(
+                "menuCashier not translated for ${lang.code}",
+                idStrings.menuCashier,
+                strings.menuCashier
+            )
+            org.junit.Assert.assertNotEquals(
+                "receiptTitle not translated for ${lang.code}",
+                idStrings.receiptTitle,
+                strings.receiptTitle
+            )
+
+            val yearReport = SalesReportCalculator.computeReport(
+                transactions = emptyList(),
+                expenses = emptyList(),
+                photoLookup = emptyMap(),
+                mode = ReportFilterMode.YEAR,
+                year = 2026,
+                monthZeroBased = Calendar.JANUARY,
+                dayOfMonth = 1,
+                language = lang.code
+            )
+            assertEquals(12, yearReport.buckets.size)
+        }
+    }
+
+    @Test
+    fun appCurrencyCatalog_coversAllSixRegionsAndFormatsZeroAndTwoDecimalCurrencies() {
+        val currencies = AppCurrencyCatalog.all
+        assertEquals(26, currencies.size)
+        assertEquals(LocalizationRegion.entries.toSet(), currencies.map { it.region }.toSet())
+
+        currencies.forEach { cur ->
+            val formatted = com.example.util.PosFormatters.formatCurrency(12345.67, cur.code)
+            org.junit.Assert.assertTrue(
+                "Formatted output for ${cur.code} missing symbol ${cur.symbol}: $formatted",
+                formatted.contains(cur.symbol)
+            )
+            val negFormatted = com.example.util.PosFormatters.formatCurrency(-150.5, cur.code)
+            org.junit.Assert.assertTrue(
+                "Negative formatted output for ${cur.code} missing '-': $negFormatted",
+                negFormatted.startsWith("-")
+            )
+            org.junit.Assert.assertTrue(cur.quickCashNominals.isNotEmpty())
+            org.junit.Assert.assertTrue(cur.quickDiscountPresets.isNotEmpty())
+        }
+
+        // 0-decimal examples (IDR, JPY) vs 2-decimal examples (USD, EUR, RUB, AUD)
+        assertEquals("Rp 15.000", com.example.util.PosFormatters.formatCurrency(15000.0, "IDR"))
+        assertEquals("¥ 1,500", com.example.util.PosFormatters.formatCurrency(1500.0, "JPY"))
+        assertEquals("$ 1,234.50", com.example.util.PosFormatters.formatCurrency(1234.5, "USD"))
+        assertEquals("€ 1.234,50", com.example.util.PosFormatters.formatCurrency(1234.5, "EUR"))
+        assertEquals("₽ 1 234,50", com.example.util.PosFormatters.formatCurrency(1234.5, "RUB"))
+        assertEquals("A$ 1,234.50", com.example.util.PosFormatters.formatCurrency(1234.5, "AUD"))
+
+        assertEquals("15000", com.example.util.PosFormatters.formatInputAmount(15000.0, "IDR"))
+        assertEquals("12.50", com.example.util.PosFormatters.formatInputAmount(12.5, "USD"))
     }
 }
 

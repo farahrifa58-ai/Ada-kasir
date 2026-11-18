@@ -23,6 +23,8 @@ import com.example.data.model.TransactionItem
 import com.example.data.model.TransactionStatus
 import com.example.data.prefs.LocalAppPrefs
 import com.example.data.prefs.LocalPreferencesManager
+import com.example.ui.theme.AppStrings
+import com.example.ui.theme.appStringsForLanguage
 import com.example.util.PosFormatters
 import com.google.firebase.firestore.FirebaseFirestoreException
 import kotlinx.coroutines.CancellationException
@@ -216,6 +218,7 @@ class PosViewModel(
     init {
         viewModelScope.launch {
             val local = prefsManager.prefsFlow.first()
+            PosFormatters.syncActiveCurrency(local.currencyCode)
             val shouldSeedSamples = !prefsManager.hasSeededSampleProducts(currentUserId)
             repository.ensureInitialUserSetup(
                 userId = currentUserId,
@@ -223,13 +226,14 @@ class PosViewModel(
                 ownerEmail = userEmail,
                 defaultDarkTheme = local.darkTheme,
                 defaultLanguage = local.language,
+                defaultCurrencyCode = local.currencyCode,
                 seedSampleProducts = shouldSeedSamples
             )
             if (shouldSeedSamples) {
                 prefsManager.markSampleProductsSeeded(currentUserId)
             }
         }
-        // Sync remote theme, language & default PPN/discount when operating own store
+        // Sync remote theme, language, currency & default PPN/discount when operating own store
         var lastDefaultConfigKey: String? = null
         viewModelScope.launch {
             combine(settings, isMonitorMode) { s, monitoring -> s to monitoring }
@@ -237,8 +241,10 @@ class PosViewModel(
                     if (!monitoring && (s.createdAt != null || s.updatedAt != null)) {
                         prefsManager.setDarkTheme(s.darkTheme)
                         prefsManager.setLanguage(s.language)
+                        prefsManager.setCurrencyCode(s.currencyCode)
                     }
-                    val configKey = "${s.defaultTaxType}|${s.defaultManualTaxAmount}|${s.defaultDiscountType}|${s.defaultDiscountValue}"
+                    PosFormatters.syncActiveCurrency(s.currencyCode.ifBlank { localPrefs.value.currencyCode })
+                    val configKey = "${s.defaultTaxType}|${s.defaultManualTaxAmount}|${s.defaultDiscountType}|${s.defaultDiscountValue}|${s.currencyCode}"
                     if (configKey != lastDefaultConfigKey) {
                         lastDefaultConfigKey = configKey
                         if (_cashierState.value.cart.isEmpty() && !_cashierState.value.isSubmitting) {
@@ -249,6 +255,11 @@ class PosViewModel(
         }
     }
 
+    private fun activeStrings(): AppStrings {
+        val code = settings.value.language.ifBlank { localPrefs.value.language }
+        return appStringsForLanguage(code)
+    }
+
     private fun buildDefaultCashierState(store: StoreSettings): CashierUiState {
         val discType = DiscountType.fromCode(store.defaultDiscountType)
         val discInput = if (discType != DiscountType.NONE && store.defaultDiscountValue > 0.0) {
@@ -256,7 +267,7 @@ class PosViewModel(
         } else ""
         val taxType = TaxType.fromCode(store.defaultTaxType)
         val manualTaxInput = if (taxType == TaxType.MANUAL && store.defaultManualTaxAmount > 0.0) {
-            store.defaultManualTaxAmount.toLong().toString()
+            PosFormatters.formatInputAmount(store.defaultManualTaxAmount, store.currencyCode)
         } else ""
         return CashierUiState(
             discountType = discType,
@@ -303,12 +314,7 @@ class PosViewModel(
 
     private fun blockIfMonitorMode(): Boolean {
         if (isMonitorMode.value) {
-            val msg = if (localPrefs.value.language == "en") {
-                "Monitor Mode is read-only. Switch to Cashier Mode to edit data."
-            } else {
-                "Mode Pemantau bersifat hanya-baca. Ubah ke Mode Kasir untuk mengedit data."
-            }
-            _notices.tryEmit(UiNotice.Error(msg))
+            _notices.tryEmit(UiNotice.Error(activeStrings().monitorReadOnlyError))
             return true
         }
         return false
@@ -416,7 +422,8 @@ class PosViewModel(
     }
 
     fun fillExactAmountPaid() {
-        val total = checkoutTotals.value.grandTotal.toLong().toString()
+        val currencyCode = settings.value.currencyCode.ifBlank { localPrefs.value.currencyCode }
+        val total = PosFormatters.formatInputAmount(checkoutTotals.value.grandTotal, currencyCode)
         _cashierState.update { it.copy(amountPaidInput = total) }
     }
 
@@ -459,7 +466,7 @@ class PosViewModel(
         val resolvedCashierName = settings.value.ownerName
             .ifBlank { userDisplayName }
             .ifBlank { userEmail.substringBefore("@") }
-            .ifBlank { "Kasir" }
+            .ifBlank { activeStrings().receiptCashierLabel }
 
         val tx = PosTransaction(
             id = txId,
@@ -520,7 +527,7 @@ class PosViewModel(
         viewModelScope.launch {
             repository.saveProduct(currentUserId, product)
                 .onSuccess { onSaved() }
-                .onFailure { _notices.tryEmit(UiNotice.Error(it.localizedMessage ?: "Failed to save product")) }
+                .onFailure { _notices.tryEmit(UiNotice.Error(it.localizedMessage ?: activeStrings().errSaveFailed)) }
         }
     }
 
@@ -528,7 +535,7 @@ class PosViewModel(
         if (blockIfMonitorMode()) return
         viewModelScope.launch {
             repository.deleteProduct(currentUserId, productId)
-                .onFailure { _notices.tryEmit(UiNotice.Error(it.localizedMessage ?: "Failed to delete product")) }
+                .onFailure { _notices.tryEmit(UiNotice.Error(it.localizedMessage ?: activeStrings().errSaveFailed)) }
         }
     }
 
@@ -536,7 +543,7 @@ class PosViewModel(
         if (blockIfMonitorMode()) return
         viewModelScope.launch {
             repository.addCategory(currentUserId, name)
-                .onFailure { _notices.tryEmit(UiNotice.Error(it.localizedMessage ?: "Failed to add category")) }
+                .onFailure { _notices.tryEmit(UiNotice.Error(it.localizedMessage ?: activeStrings().errSaveFailed)) }
         }
     }
 
@@ -544,7 +551,7 @@ class PosViewModel(
         if (blockIfMonitorMode()) return
         viewModelScope.launch {
             repository.updateCategory(currentUserId, categoryId, newName)
-                .onFailure { _notices.tryEmit(UiNotice.Error(it.localizedMessage ?: "Failed to update category")) }
+                .onFailure { _notices.tryEmit(UiNotice.Error(it.localizedMessage ?: activeStrings().errSaveFailed)) }
         }
     }
 
@@ -552,7 +559,7 @@ class PosViewModel(
         if (blockIfMonitorMode()) return
         viewModelScope.launch {
             repository.deleteCategory(currentUserId, categoryId)
-                .onFailure { _notices.tryEmit(UiNotice.Error(it.localizedMessage ?: "Failed to delete category")) }
+                .onFailure { _notices.tryEmit(UiNotice.Error(it.localizedMessage ?: activeStrings().errSaveFailed)) }
         }
     }
 
@@ -565,7 +572,7 @@ class PosViewModel(
                     _notices.tryEmit(UiNotice.Info(successMsg))
                     onSaved()
                 }
-                .onFailure { _notices.tryEmit(UiNotice.Error(it.localizedMessage ?: "Failed to save expense")) }
+                .onFailure { _notices.tryEmit(UiNotice.Error(it.localizedMessage ?: activeStrings().errSaveFailed)) }
         }
     }
 
@@ -573,7 +580,7 @@ class PosViewModel(
         if (blockIfMonitorMode()) return
         viewModelScope.launch {
             repository.deleteExpense(currentUserId, expenseId)
-                .onFailure { _notices.tryEmit(UiNotice.Error(it.localizedMessage ?: "Failed to delete expense")) }
+                .onFailure { _notices.tryEmit(UiNotice.Error(it.localizedMessage ?: activeStrings().errSaveFailed)) }
         }
     }
 
@@ -588,7 +595,7 @@ class PosViewModel(
         viewModelScope.launch {
             repository.cancelOrRefundTransaction(currentUserId, transactionId, targetStatus, reason)
                 .onSuccess { onComplete() }
-                .onFailure { _notices.tryEmit(UiNotice.Error(it.localizedMessage ?: "Operation failed")) }
+                .onFailure { _notices.tryEmit(UiNotice.Error(it.localizedMessage ?: activeStrings().errSaveFailed)) }
         }
     }
 
@@ -646,7 +653,7 @@ class PosViewModel(
             ).onSuccess {
                 _notices.tryEmit(UiNotice.Info(successMsg))
             }.onFailure {
-                _notices.tryEmit(UiNotice.Error(it.localizedMessage ?: "Failed to save profile"))
+                _notices.tryEmit(UiNotice.Error(it.localizedMessage ?: activeStrings().errSaveFailed))
             }
         }
     }
@@ -671,7 +678,7 @@ class PosViewModel(
             ).onSuccess {
                 _notices.tryEmit(UiNotice.Info(successMsg))
             }.onFailure {
-                _notices.tryEmit(UiNotice.Error(it.localizedMessage ?: "Failed to save tax & discount"))
+                _notices.tryEmit(UiNotice.Error(it.localizedMessage ?: activeStrings().errSaveFailed))
             }
         }
     }
@@ -723,7 +730,7 @@ class PosViewModel(
             ).onSuccess {
                 _notices.tryEmit(UiNotice.Info(successMsg))
             }.onFailure {
-                _notices.tryEmit(UiNotice.Error(it.localizedMessage ?: "Failed to save receipt settings"))
+                _notices.tryEmit(UiNotice.Error(it.localizedMessage ?: activeStrings().errSaveFailed))
             }
         }
     }
@@ -752,7 +759,7 @@ class PosViewModel(
             ).onSuccess {
                 _notices.tryEmit(UiNotice.Info(successMsg))
             }.onFailure {
-                _notices.tryEmit(UiNotice.Error(it.localizedMessage ?: "Failed to save permissions"))
+                _notices.tryEmit(UiNotice.Error(it.localizedMessage ?: activeStrings().errSaveFailed))
             }
         }
     }
@@ -780,7 +787,7 @@ class PosViewModel(
         return true
     }
 
-    fun addMonitorEmail(email: String, limitReachedMsg: String = "Maksimal 2 akun pemantau") {
+    fun addMonitorEmail(email: String, limitReachedMsg: String = activeStrings().monitorLimitReachedMsg) {
         if (blockIfMonitorMode()) return
         val clean = email.trim().lowercase()
         if (!clean.contains("@") || clean.startsWith("@") || clean.endsWith("@")) return
@@ -798,7 +805,7 @@ class PosViewModel(
                 storeName = settings.value.storeName,
                 emails = updated
             ).onFailure {
-                _notices.tryEmit(UiNotice.Error(it.localizedMessage ?: "Failed to add monitor email"))
+                _notices.tryEmit(UiNotice.Error(it.localizedMessage ?: activeStrings().errSaveFailed))
             }
         }
     }
@@ -814,7 +821,7 @@ class PosViewModel(
                 storeName = settings.value.storeName,
                 emails = updated
             ).onFailure {
-                _notices.tryEmit(UiNotice.Error(it.localizedMessage ?: "Failed to remove monitor email"))
+                _notices.tryEmit(UiNotice.Error(it.localizedMessage ?: activeStrings().errSaveFailed))
             }
         }
     }
@@ -872,9 +879,27 @@ class PosViewModel(
         }
     }
 
+    fun setCurrency(currencyCode: String) {
+        viewModelScope.launch {
+            PosFormatters.syncActiveCurrency(currencyCode)
+            prefsManager.setCurrencyCode(currencyCode)
+            if (!isMonitorMode.value) {
+                repository.updateCurrency(currentUserId, currencyCode)
+                    .onSuccess {
+                        _notices.tryEmit(UiNotice.Info(activeStrings().currencySavedMsg))
+                    }
+                    .onFailure {
+                        _notices.tryEmit(UiNotice.Error(it.localizedMessage ?: activeStrings().errSaveFailed))
+                    }
+            } else {
+                _notices.tryEmit(UiNotice.Info(activeStrings().currencySavedMsg))
+            }
+        }
+    }
+
     suspend fun generateBackupJson(): Result<String> {
         if (blockIfMonitorMode()) {
-            return Result.failure(IllegalStateException("Monitor mode is read-only"))
+            return Result.failure(IllegalStateException(activeStrings().monitorReadOnlyError))
         }
         _isBackupBusy.value = true
         return try {

@@ -69,6 +69,7 @@ import com.example.ui.components.SubScreenTopBar
 import com.example.ui.theme.BrandBlue
 import com.example.ui.theme.BrandGreen
 import com.example.ui.theme.JetBrainsMonoFontFamily
+import com.example.ui.theme.LocalAppCurrency
 import com.example.ui.theme.LocalAppStrings
 import com.example.ui.theme.StatusError
 import com.example.ui.theme.StatusWarning
@@ -90,6 +91,7 @@ fun SalesReportScreen(
     modifier: Modifier = Modifier
 ) {
     val strings = LocalAppStrings.current
+    val currency = LocalAppCurrency.current
     val language = store.language
 
     val todayCal = remember { Calendar.getInstance() }
@@ -108,7 +110,8 @@ fun SalesReportScreen(
         filterMode,
         selectedYear,
         selectedMonth,
-        selectedDay
+        selectedDay,
+        language
     ) {
         SalesReportCalculator.computeReport(
             transactions = transactions,
@@ -117,7 +120,8 @@ fun SalesReportScreen(
             mode = filterMode,
             year = selectedYear,
             monthZeroBased = selectedMonth,
-            dayOfMonth = selectedDay
+            dayOfMonth = selectedDay,
+            language = language
         )
     }
 
@@ -239,7 +243,7 @@ fun SalesReportScreen(
                                     ) {
                                         Icon(
                                             imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowLeft,
-                                            contentDescription = "Previous"
+                                            contentDescription = strings.previousLabel
                                         )
                                     }
 
@@ -273,7 +277,7 @@ fun SalesReportScreen(
                                     ) {
                                         Icon(
                                             imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
-                                            contentDescription = "Next"
+                                            contentDescription = strings.nextLabel
                                         )
                                     }
                                 }
@@ -291,8 +295,8 @@ fun SalesReportScreen(
                         ) {
                             ReportMetricCard(
                                 title = strings.reportTotalSales,
-                                value = PosFormatters.formatRupiah(report.totalSalesNet),
-                                subtitle = "${PosFormatters.formatQuantity(report.totalItemsSold)} item • ${report.transactionCount} Trx",
+                                value = PosFormatters.formatCurrency(report.totalSalesNet, currency.code),
+                                subtitle = "${PosFormatters.formatQuantity(report.totalItemsSold)} item • ${report.transactionCount} ${strings.trxShortLabel}",
                                 icon = Icons.Rounded.ShoppingBag,
                                 accentColor = BrandBlue,
                                 modifier = Modifier
@@ -301,11 +305,11 @@ fun SalesReportScreen(
                             )
                             ReportMetricCard(
                                 title = strings.reportOmset,
-                                value = PosFormatters.formatRupiah(report.totalOmset),
+                                value = PosFormatters.formatCurrency(report.totalOmset, currency.code),
                                 subtitle = if (report.totalTax > 0.0) {
-                                    "Termasuk PPN ${PosFormatters.formatRupiah(report.totalTax)}"
+                                    "${strings.includingTaxPrefix} ${PosFormatters.formatCurrency(report.totalTax, currency.code)}"
                                 } else {
-                                    "${report.transactionCount} Transaksi"
+                                    "${report.transactionCount} ${strings.transactionsPluralLabel}"
                                 },
                                 icon = Icons.Rounded.Payments,
                                 accentColor = BrandGreen,
@@ -321,8 +325,8 @@ fun SalesReportScreen(
                         ) {
                             ReportMetricCard(
                                 title = strings.reportHpp,
-                                value = PosFormatters.formatRupiah(report.totalHpp),
-                                subtitle = strings.productCostPriceLabel.replace(" (Rp)", ""),
+                                value = PosFormatters.formatCurrency(report.totalHpp, currency.code),
+                                subtitle = strings.reportHppSubtitle,
                                 icon = Icons.Rounded.Inventory,
                                 accentColor = StatusWarning,
                                 modifier = Modifier
@@ -331,12 +335,12 @@ fun SalesReportScreen(
                             )
                             ReportMetricCard(
                                 title = strings.reportGrossProfit,
-                                value = PosFormatters.formatRupiah(report.grossProfit),
+                                value = PosFormatters.formatCurrency(report.grossProfit, currency.code),
                                 subtitle = if (report.totalSalesNet > 0.0) {
                                     val margin = (report.grossProfit / report.totalSalesNet) * 100.0
-                                    String.format(java.util.Locale.US, "Margin %.1f%%", margin)
+                                    String.format(java.util.Locale.US, "${strings.marginLabel} %.1f%%", margin)
                                 } else {
-                                    "Penjualan - HPP"
+                                    strings.salesMinusCogsLabel
                                 },
                                 icon = Icons.AutoMirrored.Rounded.TrendingUp,
                                 accentColor = if (report.grossProfit >= 0.0) BrandGreen else StatusError,
@@ -389,7 +393,7 @@ fun SalesReportScreen(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                     Text(
-                                        text = PosFormatters.formatRupiah(report.totalExpenses),
+                                        text = PosFormatters.formatCurrency(report.totalExpenses, currency.code),
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.Bold,
                                         color = StatusError
@@ -404,7 +408,7 @@ fun SalesReportScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Text(
-                                    text = PosFormatters.formatRupiah(report.netProfit),
+                                    text = PosFormatters.formatCurrency(report.netProfit, currency.code),
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = if (report.netProfit >= 0.0) BrandGreen else StatusError
@@ -450,12 +454,12 @@ fun SalesReportScreen(
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
                                         Text(
-                                            text = "${inspected.label} (${inspected.transactionCount} trx)",
+                                            text = "${inspected.label} (${inspected.transactionCount} ${strings.trxShortLabel})",
                                             style = MaterialTheme.typography.labelMedium,
                                             color = MaterialTheme.colorScheme.onPrimaryContainer
                                         )
                                         Text(
-                                            text = PosFormatters.formatRupiah(inspected.totalSales),
+                                            text = PosFormatters.formatCurrency(inspected.totalSales, currency.code),
                                             style = MaterialTheme.typography.labelMedium,
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.primary
@@ -518,7 +522,7 @@ fun SalesReportScreen(
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                     Text(
-                                        text = PosFormatters.formatRupiah(item.totalAmount),
+                                        text = PosFormatters.formatCurrency(item.totalAmount, currency.code),
                                         style = MaterialTheme.typography.titleSmall,
                                         fontWeight = FontWeight.SemiBold,
                                         color = MaterialTheme.colorScheme.primary
@@ -589,7 +593,7 @@ fun SalesReportScreen(
                                             )
                                         }
                                         Text(
-                                            text = PosFormatters.formatRupiah(top.totalValue),
+                                            text = PosFormatters.formatCurrency(top.totalValue, currency.code),
                                             style = MaterialTheme.typography.titleSmall,
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.primary
@@ -659,7 +663,7 @@ fun SalesReportScreen(
                                             )
                                         }
                                         Text(
-                                            text = PosFormatters.formatRupiah(tx.totalAmount),
+                                            text = PosFormatters.formatCurrency(tx.totalAmount, currency.code),
                                             style = MaterialTheme.typography.titleSmall,
                                             fontWeight = FontWeight.Bold,
                                             color = BrandGreen

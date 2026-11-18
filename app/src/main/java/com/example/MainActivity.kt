@@ -58,6 +58,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.data.firebase.PosRepository
+import com.example.data.model.AppCurrencyCatalog
 import com.example.data.model.PosTransaction
 import com.example.data.prefs.LocalAppPrefs
 import com.example.data.prefs.LocalPreferencesManager
@@ -73,12 +74,13 @@ import com.example.ui.screens.SalesReportScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.theme.AdaKasirTheme
 import com.example.ui.theme.BrandBlueDark
-import com.example.ui.theme.EnglishStrings
-import com.example.ui.theme.IndonesianStrings
+import com.example.ui.theme.LocalAppCurrency
 import com.example.ui.theme.LocalAppStrings
+import com.example.ui.theme.appStringsForLanguage
 import com.example.ui.viewmodel.AppMenu
 import com.example.ui.viewmodel.PosViewModel
 import com.example.ui.viewmodel.UiNotice
+import com.example.util.PosFormatters
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.auth
@@ -175,9 +177,14 @@ fun AdaKasirRoot(
         }
     }
 
-    val strings = if (localPrefs.language == "en") EnglishStrings else IndonesianStrings
+    val strings = appStringsForLanguage(localPrefs.language)
+    val currency = AppCurrencyCatalog.fromCode(localPrefs.currencyCode)
+    PosFormatters.syncActiveCurrency(currency.code)
 
-    CompositionLocalProvider(LocalAppStrings provides strings) {
+    CompositionLocalProvider(
+        LocalAppStrings provides strings,
+        LocalAppCurrency provides currency
+    ) {
         AdaKasirTheme(darkTheme = localPrefs.darkTheme) {
             if (showSplash) {
                 AdaKasirSplashScreen()
@@ -318,7 +325,11 @@ internal fun AdaKasirAppShell(
     val completedReceipt by viewModel.completedReceipt.collectAsStateWithLifecycle()
     val isBackupBusy by viewModel.isBackupBusy.collectAsStateWithLifecycle()
 
-    val strings = if (settings.language == "en") EnglishStrings else IndonesianStrings
+    val activeLang = settings.language.ifBlank { localPrefs.language }
+    val strings = appStringsForLanguage(activeLang)
+    val activeCurrencyCode = settings.currencyCode.ifBlank { localPrefs.currencyCode }
+    val currency = AppCurrencyCatalog.fromCode(activeCurrencyCode)
+    PosFormatters.syncActiveCurrency(currency.code)
     val snackbarHostState = remember { SnackbarHostState() }
     var historyQuickSelectedTx by remember { mutableStateOf<PosTransaction?>(null) }
 
@@ -337,7 +348,10 @@ internal fun AdaKasirAppShell(
         viewModel.selectMenu(AppMenu.DASHBOARD)
     }
 
-    CompositionLocalProvider(LocalAppStrings provides strings) {
+    CompositionLocalProvider(
+        LocalAppStrings provides strings,
+        LocalAppCurrency provides currency
+    ) {
         AdaKasirTheme(darkTheme = settings.darkTheme) {
             Scaffold(
                 snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
@@ -577,6 +591,7 @@ internal fun AdaKasirAppShell(
                                 onDisconnectMonitorStore = viewModel::disconnectMonitorStore,
                                 onSetDarkTheme = viewModel::setDarkTheme,
                                 onSetLanguage = viewModel::setLanguage,
+                                onSetCurrency = viewModel::setCurrency,
                                 onSelectPrinter = viewModel::selectDefaultPrinter,
                                 onClearPrinter = viewModel::clearDefaultPrinter,
                                 onSetPrinterPaperWidth = viewModel::setPrinterPaperWidth,

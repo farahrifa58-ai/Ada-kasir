@@ -2,6 +2,8 @@ package com.example.data.firebase
 
 import android.content.Context
 import com.example.R
+import com.example.data.model.AppCurrencyCatalog
+import com.example.data.model.AppLanguageCatalog
 import com.example.data.model.DiscountType
 import com.example.data.model.Expense
 import com.example.data.model.ExpenseCategory
@@ -185,6 +187,7 @@ class PosRepository(private val db: FirebaseFirestore) {
         ownerEmail: String = "",
         defaultDarkTheme: Boolean,
         defaultLanguage: String,
+        defaultCurrencyCode: String = "IDR",
         seedSampleProducts: Boolean = true
     ) {
         val uid = requireActiveUid(userId)
@@ -204,7 +207,8 @@ class PosRepository(private val db: FirebaseFirestore) {
                     "storeIconKey" to "",
                     "storeIconBgHex" to "#1565C0",
                     "darkTheme" to defaultDarkTheme,
-                    "language" to if (defaultLanguage == "en") "en" else "id",
+                    "language" to AppLanguageCatalog.normalizeCode(defaultLanguage),
+                    "currencyCode" to AppCurrencyCatalog.normalizeCode(defaultCurrencyCode),
                     "defaultTaxPercent" to 11.0,
                     "defaultTaxType" to TaxType.NONE.code,
                     "defaultManualTaxAmount" to 0.0,
@@ -393,6 +397,7 @@ class PosRepository(private val db: FirebaseFirestore) {
                     "storeIconBgHex" to cleanBgHex,
                     "darkTheme" to false,
                     "language" to "id",
+                    "currencyCode" to "IDR",
                     "defaultTaxPercent" to defaultTaxPercent.coerceIn(0.0, 100.0),
                     "defaultTaxType" to TaxType.NONE.code,
                     "defaultManualTaxAmount" to 0.0,
@@ -658,6 +663,7 @@ class PosRepository(private val db: FirebaseFirestore) {
                     "photoData" to "",
                     "darkTheme" to darkTheme,
                     "language" to "id",
+                    "currencyCode" to "IDR",
                     "defaultTaxPercent" to 11.0,
                     "createdAt" to FieldValue.serverTimestamp(),
                     "updatedAt" to FieldValue.serverTimestamp()
@@ -672,7 +678,7 @@ class PosRepository(private val db: FirebaseFirestore) {
 
     suspend fun updateLanguage(userId: String, language: String): Result<Unit> = runCatching {
         val uid = requireActiveUid(userId)
-        val cleanLang = if (language == "en") "en" else "id"
+        val cleanLang = AppLanguageCatalog.normalizeCode(language)
         val ref = settingsDoc(uid)
         val snapshot = ref.get().await()
         if (snapshot.exists()) {
@@ -693,6 +699,43 @@ class PosRepository(private val db: FirebaseFirestore) {
                     "photoData" to "",
                     "darkTheme" to false,
                     "language" to cleanLang,
+                    "currencyCode" to "IDR",
+                    "defaultTaxPercent" to 11.0,
+                    "createdAt" to FieldValue.serverTimestamp(),
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+            ).await()
+        }
+        Unit
+    }.onFailure { e ->
+        if (e is CancellationException) throw e
+        handleFirestoreError(e, OperationType.UPDATE, settingsDoc(userId).path)
+    }
+
+    suspend fun updateCurrency(userId: String, currencyCode: String): Result<Unit> = runCatching {
+        val uid = requireActiveUid(userId)
+        val cleanCurrency = AppCurrencyCatalog.normalizeCode(currencyCode)
+        val ref = settingsDoc(uid)
+        val snapshot = ref.get().await()
+        if (snapshot.exists()) {
+            ref.update(
+                mapOf(
+                    "currencyCode" to cleanCurrency,
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+            ).await()
+        } else {
+            ref.set(
+                mapOf(
+                    "userId" to uid,
+                    "storeName" to "Toko ADA KASIR",
+                    "ownerName" to "",
+                    "phone" to "",
+                    "address" to "",
+                    "photoData" to "",
+                    "darkTheme" to false,
+                    "language" to "id",
+                    "currencyCode" to cleanCurrency,
                     "defaultTaxPercent" to 11.0,
                     "createdAt" to FieldValue.serverTimestamp(),
                     "updatedAt" to FieldValue.serverTimestamp()
@@ -1082,7 +1125,8 @@ class PosRepository(private val db: FirebaseFirestore) {
                 put("storeIconKey", settings.storeIconKey)
                 put("storeIconBgHex", settings.storeIconBgHex)
                 put("darkTheme", settings.darkTheme)
-                put("language", settings.language)
+                put("language", AppLanguageCatalog.normalizeCode(settings.language))
+                put("currencyCode", AppCurrencyCatalog.normalizeCode(settings.currencyCode))
                 put("defaultTaxPercent", settings.defaultTaxPercent)
                 put("defaultTaxType", settings.defaultTaxType)
                 put("defaultManualTaxAmount", settings.defaultManualTaxAmount)
@@ -1232,7 +1276,8 @@ class PosRepository(private val db: FirebaseFirestore) {
             "storeIconKey" to settingsObj.optString("storeIconKey", "").take(40),
             "storeIconBgHex" to settingsObj.optString("storeIconBgHex", "#1565C0").ifBlank { "#1565C0" }.take(16),
             "darkTheme" to settingsObj.optBoolean("darkTheme", false),
-            "language" to if (settingsObj.optString("language") == "en") "en" else "id",
+            "language" to AppLanguageCatalog.normalizeCode(settingsObj.optString("language")),
+            "currencyCode" to AppCurrencyCatalog.normalizeCode(settingsObj.optString("currencyCode")),
             "defaultTaxPercent" to settingsObj.optDouble("defaultTaxPercent", 11.0).coerceIn(0.0, 100.0),
             "defaultTaxType" to TaxType.fromCode(settingsObj.optString("defaultTaxType", TaxType.NONE.code)).code,
             "defaultManualTaxAmount" to PosCalculator.roundCurrency(settingsObj.optDouble("defaultManualTaxAmount", 0.0).coerceAtLeast(0.0)),

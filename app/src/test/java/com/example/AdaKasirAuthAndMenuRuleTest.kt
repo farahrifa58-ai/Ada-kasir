@@ -384,25 +384,42 @@ class AdaKasirAuthAndMenuRuleTest : FirestoreEmulatorTestBase() {
 
     @Test
     fun settingsScreen_dialogsOpenAndCloseCleanly() {
+        var selectedLanguage by mutableStateOf("id")
+        var selectedCurrency by mutableStateOf("IDR")
         composeRule.setContent {
-            com.example.ui.theme.AdaKasirTheme {
-                com.example.ui.screens.SettingsScreen(
-                    store = com.example.data.model.StoreSettings(storeName = "Toko Uji"),
-                    localPrefs = com.example.data.prefs.LocalAppPrefs(),
-                    userEmail = "kasir@test.com",
-                    isBackupBusy = false,
-                    onBackToDashboard = {},
-                    onSaveProfile = { _, _, _, _, _, _ -> },
-                    onSetDarkTheme = {},
-                    onSetLanguage = {},
-                    onSelectPrinter = { _, _ -> },
-                    onClearPrinter = {},
-                    onSetPrinterPaperWidth = {},
-                    onGenerateBackupJson = { Result.success("{}") },
-                    onValidateBackupJson = { Result.success(com.example.data.firebase.BackupSummary("Toko Uji", 0, 0, 0, 0L)) },
-                    onRestoreBackupJson = {},
-                    onSignOut = {}
-                )
+            val activeStrings = com.example.ui.theme.appStringsForLanguage(selectedLanguage)
+            val activeCurrency = com.example.data.model.AppCurrencyCatalog.fromCode(selectedCurrency)
+            androidx.compose.runtime.CompositionLocalProvider(
+                com.example.ui.theme.LocalAppStrings provides activeStrings,
+                com.example.ui.theme.LocalAppCurrency provides activeCurrency
+            ) {
+                com.example.ui.theme.AdaKasirTheme {
+                    com.example.ui.screens.SettingsScreen(
+                        store = com.example.data.model.StoreSettings(
+                            storeName = "Toko Uji",
+                            language = selectedLanguage,
+                            currencyCode = selectedCurrency
+                        ),
+                        localPrefs = com.example.data.prefs.LocalAppPrefs(
+                            language = selectedLanguage,
+                            currencyCode = selectedCurrency
+                        ),
+                        userEmail = "kasir@test.com",
+                        isBackupBusy = false,
+                        onBackToDashboard = {},
+                        onSaveProfile = { _, _, _, _, _, _ -> },
+                        onSetDarkTheme = {},
+                        onSetLanguage = { selectedLanguage = it },
+                        onSetCurrency = { selectedCurrency = it },
+                        onSelectPrinter = { _, _ -> },
+                        onClearPrinter = {},
+                        onSetPrinterPaperWidth = {},
+                        onGenerateBackupJson = { Result.success("{}") },
+                        onValidateBackupJson = { Result.success(com.example.data.firebase.BackupSummary("Toko Uji", 0, 0, 0, 0L)) },
+                        onRestoreBackupJson = {},
+                        onSignOut = {}
+                    )
+                }
             }
         }
         composeRule.waitForIdle()
@@ -438,6 +455,38 @@ class AdaKasirAuthAndMenuRuleTest : FirestoreEmulatorTestBase() {
         composeRule.onNodeWithTag("switch_store_operating_hours").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithContentDescription("Tutup").performClick()
         composeRule.waitForIdle()
+
+        // Currency card opens CurrencyPickerDialog and switches currency
+        composeRule.onNodeWithTag("settings_lazy_column").performScrollToNode(hasTestTag("settings_currency_item"))
+        composeRule.onNodeWithTag("settings_currency_item").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("currency_picker_dialog").assertIsDisplayed()
+        composeRule.onNodeWithTag("currency_list").performScrollToNode(hasTestTag("currency_option_USD"))
+        composeRule.onNodeWithTag("currency_option_USD").performClick()
+        composeRule.waitForIdle()
+        assertEquals("USD", selectedCurrency)
+
+        // Openable About App card opens About dialog cleanly
+        composeRule.onNodeWithTag("settings_lazy_column").performScrollToNode(hasTestTag("settings_about_item"))
+        composeRule.onNodeWithTag("settings_about_item").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("about_app_dialog").assertIsDisplayed()
+        composeRule.onNodeWithText("Tutup").performClick()
+        composeRule.waitForIdle()
+
+        // Language picker switches all UI text dynamically
+        composeRule.onNodeWithTag("settings_lazy_column").performScrollToNode(hasTestTag("settings_appearance_item"))
+        composeRule.onNodeWithTag("settings_appearance_item").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("open_language_picker_button").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("language_picker_dialog").assertIsDisplayed()
+        composeRule.onNodeWithTag("language_list").performScrollToNode(hasTestTag("lang_option_ja"))
+        composeRule.onNodeWithTag("lang_option_ja").performClick()
+        composeRule.waitForIdle()
+        assertEquals("ja", selectedLanguage)
+        // Header/menu title updates to Japanese immediately
+        composeRule.onNodeWithText(com.example.ui.theme.JapaneseStrings.menuSettings).assertIsDisplayed()
     }
 
     @Test

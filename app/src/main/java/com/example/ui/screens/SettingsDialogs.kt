@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -21,6 +22,8 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -35,12 +38,15 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.MenuBook
+import androidx.compose.material.icons.rounded.Payments
 import androidx.compose.material.icons.rounded.Percent
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.Save
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Storefront
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
@@ -50,6 +56,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -84,8 +91,13 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.R
 import com.example.data.model.AppAccessMode
+import com.example.data.model.AppCurrencyCatalog
+import com.example.data.model.AppLanguageCatalog
 import com.example.data.model.DiscountType
+import com.example.data.model.LocalizationRegion
 import com.example.data.model.PaymentMethod
+import com.example.data.model.PosCurrencyOption
+import com.example.data.model.PosLanguageOption
 import com.example.data.model.PosTransaction
 import com.example.data.model.StaffRole
 import com.example.data.model.StoreDirectoryEntry
@@ -101,9 +113,12 @@ import com.example.ui.components.storeBusinessIconVector
 import com.example.ui.theme.BrandBlue
 import com.example.ui.theme.BrandGreen
 import com.example.ui.theme.JetBrainsMonoFontFamily
+import com.example.ui.theme.LocalAppCurrency
 import com.example.ui.theme.LocalAppStrings
 import com.example.ui.theme.StatusError
 import com.example.ui.theme.StatusSuccess
+import com.example.ui.theme.amountWithCurrency
+import com.example.ui.theme.tutorialStepsList
 import com.example.util.ImageUtils
 import com.example.util.PosFormatters
 import com.example.util.ReceiptHelper
@@ -247,7 +262,7 @@ internal fun StoreProfileEditorDialog(
                         StoreBusinessIcons.forEach { option ->
                             val isSelected = selectedIconKey == option.key
                             val activeBg = parseHexColor(selectedIconBgHex)
-                            val labelText = if (language == "en") option.labelEn else option.labelId
+                            val labelText = option.label(strings)
                             Surface(
                                 onClick = {
                                     selectedIconKey = option.key
@@ -463,21 +478,26 @@ internal fun TaxDiscountSettingsDialog(
     ) -> Unit
 ) {
     val strings = LocalAppStrings.current
+    val currency = LocalAppCurrency.current
     var taxType by remember(store.defaultTaxType) { mutableStateOf(TaxType.fromCode(store.defaultTaxType)) }
     var autoTaxPercentInput by remember(store.defaultTaxPercent) {
         mutableStateOf(PosFormatters.formatQuantity(store.defaultTaxPercent))
     }
-    var manualTaxInput by remember(store.defaultManualTaxAmount) {
+    var manualTaxInput by remember(store.defaultManualTaxAmount, currency.code) {
         mutableStateOf(
-            if (store.defaultManualTaxAmount > 0.0) store.defaultManualTaxAmount.toLong().toString() else ""
+            if (store.defaultManualTaxAmount > 0.0) PosFormatters.formatInputAmount(store.defaultManualTaxAmount, currency.code) else ""
         )
     }
     var discountType by remember(store.defaultDiscountType) {
         mutableStateOf(DiscountType.fromCode(store.defaultDiscountType))
     }
-    var discountValueInput by remember(store.defaultDiscountValue) {
+    var discountValueInput by remember(store.defaultDiscountValue, currency.code, discountType) {
         mutableStateOf(
-            if (store.defaultDiscountValue > 0.0) PosFormatters.formatQuantity(store.defaultDiscountValue) else ""
+            when {
+                store.defaultDiscountValue <= 0.0 -> ""
+                discountType == DiscountType.AMOUNT -> PosFormatters.formatInputAmount(store.defaultDiscountValue, currency.code)
+                else -> PosFormatters.formatQuantity(store.defaultDiscountValue)
+            }
         )
     }
 
@@ -560,9 +580,11 @@ internal fun TaxDiscountSettingsDialog(
                     if (taxType == TaxType.MANUAL) {
                         OutlinedTextField(
                             value = manualTaxInput,
-                            onValueChange = { manualTaxInput = it.filter(Char::isDigit) },
-                            label = { Text(strings.defaultManualTaxAmountLabel) },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            onValueChange = { manualTaxInput = it },
+                            label = { Text(strings.amountWithCurrency(strings.defaultManualTaxWord, currency.symbol)) },
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = if (currency.decimalPlaces > 0) KeyboardType.Decimal else KeyboardType.Number
+                            ),
                             singleLine = true,
                             shape = RoundedCornerShape(14.dp),
                             modifier = Modifier.fillMaxWidth()
@@ -603,7 +625,7 @@ internal fun TaxDiscountSettingsDialog(
                             label = {
                                 Text(
                                     if (discountType == DiscountType.PERCENT) "${strings.defaultDiscountValueLabel} (%)"
-                                    else "${strings.defaultDiscountValueLabel} (Rp)"
+                                    else strings.amountWithCurrency(strings.defaultDiscountValueLabel, currency.symbol)
                                 )
                             },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -614,7 +636,7 @@ internal fun TaxDiscountSettingsDialog(
                         val presets = if (discountType == DiscountType.PERCENT) {
                             listOf("5" to "5%", "10" to "10%", "15" to "15%", "20" to "20%")
                         } else {
-                            listOf("5000" to "Rp 5rb", "10000" to "Rp 10rb", "20000" to "Rp 20rb")
+                            currency.quickDiscountPresets
                         }
                         Row(
                             modifier = Modifier.horizontalScroll(rememberScrollState()),
@@ -640,7 +662,7 @@ internal fun TaxDiscountSettingsDialog(
                     Button(
                         onClick = {
                             val pct = autoTaxPercentInput.replace(",", ".").toDoubleOrNull()?.coerceIn(0.0, 100.0) ?: 11.0
-                            val manualAmt = manualTaxInput.toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
+                            val manualAmt = manualTaxInput.replace(",", ".").toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
                             val discVal = if (discountType == DiscountType.NONE) {
                                 0.0
                             } else {
@@ -681,6 +703,7 @@ internal fun ReceiptCustomizationWithPrefixDialog(
     ) -> Unit
 ) {
     val strings = LocalAppStrings.current
+    val currency = LocalAppCurrency.current
     var showLogo by remember(store.showReceiptLogo) { mutableStateOf(store.showReceiptLogo) }
     var showCashierName by remember(store.showReceiptCashierName) { mutableStateOf(store.showReceiptCashierName) }
     var showStorePhone by remember(store.showReceiptStorePhone) { mutableStateOf(store.showReceiptStorePhone) }
@@ -698,6 +721,7 @@ internal fun ReceiptCustomizationWithPrefixDialog(
 
     val previewStore = remember(
         store,
+        strings,
         showLogo,
         showCashierName,
         showStorePhone,
@@ -708,11 +732,11 @@ internal fun ReceiptCustomizationWithPrefixDialog(
         sanitizedPreviewPrefix
     ) {
         store.copy(
-            storeName = store.storeName.ifBlank { "Toko ADA KASIR" },
-            ownerName = store.ownerName.ifBlank { "Kasir Toko" },
+            storeName = store.storeName.ifBlank { strings.defaultStoreName },
+            ownerName = store.ownerName.ifBlank { strings.receiptCashierLabel },
             phone = store.phone.ifBlank { "0812-3456-7890" },
-            address = store.address.ifBlank { "Jl. Raya Utama No. 12" },
-            operatingHours = store.operatingHours.ifBlank { "Buka 08.00 - 21.00" },
+            address = store.address.ifBlank { strings.receiptDefaultAddress },
+            operatingHours = store.operatingHours.ifBlank { strings.receiptDefaultHours },
             showReceiptLogo = showLogo,
             showReceiptCashierName = showCashierName,
             showReceiptStorePhone = showStorePhone,
@@ -724,16 +748,16 @@ internal fun ReceiptCustomizationWithPrefixDialog(
         )
     }
 
-    val sampleTx = remember(previewStore.ownerName, sanitizedPreviewPrefix) {
+    val sampleTx = remember(previewStore.ownerName, sanitizedPreviewPrefix, strings) {
         PosTransaction(
             id = "preview",
-            transactionNumber = "$sanitizedPreviewPrefix-CONTOH-001",
-            customerName = "Budi Santoso",
-            cashierName = previewStore.ownerName.ifBlank { "Admin Kasir" },
+            transactionNumber = "$sanitizedPreviewPrefix-001",
+            customerName = strings.receiptDefaultCustomer,
+            cashierName = previewStore.ownerName.ifBlank { strings.receiptCashierLabel },
             items = listOf(
                 TransactionItem(
                     productId = "p1",
-                    productName = "Beras Premium 5 Kg",
+                    productName = strings.receiptSampleItem1,
                     unit = "Pcs",
                     unitPrice = 75000.0,
                     subtotal = 75000.0,
@@ -741,8 +765,8 @@ internal fun ReceiptCustomizationWithPrefixDialog(
                 ),
                 TransactionItem(
                     productId = "p2",
-                    productName = "Air Mineral",
-                    unit = "Botol",
+                    productName = strings.receiptSampleItem2,
+                    unit = "Pcs",
                     unitPrice = 4000.0,
                     subtotal = 8000.0,
                     quantity = 2.0
@@ -757,7 +781,7 @@ internal fun ReceiptCustomizationWithPrefixDialog(
         )
     }
 
-    val previewText = remember(previewStore, sampleTx, strings) {
+    val previewText = remember(previewStore, sampleTx, strings, currency.code, store.language) {
         ReceiptHelper.buildPlainTextReceipt(
             transaction = sampleTx,
             store = previewStore,
@@ -862,7 +886,7 @@ internal fun ReceiptCustomizationWithPrefixDialog(
                                     } else {
                                         Image(
                                             painter = painterResource(id = R.drawable.ada_kasir_logo),
-                                            contentDescription = "ADA KASIR",
+                                            contentDescription = strings.appName,
                                             contentScale = ContentScale.Fit,
                                             modifier = Modifier
                                                 .size(44.dp)
@@ -1467,7 +1491,7 @@ internal fun EnhancedUserManagementDialog(
                                         )
                                         Column(modifier = Modifier.weight(1f)) {
                                             Text(
-                                                text = entry.storeName.ifBlank { "Toko ADA KASIR" },
+                                                text = entry.storeName.ifBlank { strings.defaultStoreName },
                                                 style = MaterialTheme.typography.titleSmall,
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis
@@ -1518,7 +1542,7 @@ internal fun EnhancedUserManagementDialog(
                                 unlockPinError = null
                             }
                         },
-                        label = { Text("PIN (4-6 digit)") },
+                        label = { Text(strings.pinInputLabel) },
                         visualTransformation = PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                         singleLine = true,
@@ -1553,29 +1577,11 @@ internal fun EnhancedUserManagementDialog(
 
 @Composable
 internal fun TutorialUsageDialog(
-    language: String,
+    @Suppress("UNUSED_PARAMETER") language: String,
     onDismiss: () -> Unit
 ) {
     val strings = LocalAppStrings.current
-    val steps = if (language == "en") {
-        listOf(
-            "1. Store Profile & Logo" to "Set your store name, phone, address, upload a store photo, or choose a business icon & background color in Store Profile.",
-            "2. Products & Inventory" to "Open Products to add items, categories, cost & selling prices, stock counts, and low-stock alert thresholds.",
-            "3. Cashier Checkout" to "Tap products to add them to the cart (tap again to increase quantity or choose decimal units like Kg/Liter). Open the blue cart bar at the bottom to add customer name, discount, tax (PPN), payment method, and finish the sale.",
-            "4. Receipts & Thermal Printer" to "In Settings -> Receipt Customization, customize your receipt prefix (e.g., AK / SHOP), logo, footer message, and connect a 58mm/80mm Bluetooth printer under Cashier Printer.",
-            "5. Sales Report, Expenses & History" to "Track daily/monthly revenue, COGS, net profit, operational expenses, and reprint or refund past receipts.",
-            "6. Owner, Staff Cashier & Remote Monitor" to "Switch between Owner (full access) and Cashier/Staff (default transaction-only, customizable features) protected by an Owner Security PIN. Link 1–2 Google accounts to monitor store sales remotely in Monitor Mode."
-        )
-    } else {
-        listOf(
-            "1. Profil Usaha & Ikon Toko" to "Atur nama toko, nomor HP, alamat, upload foto toko atau pilih ikon usaha & warna background di menu Pengaturan -> Profil Toko.",
-            "2. Kelola Produk & Stok" to "Buka menu Produk untuk menambahkan barang, kategori, harga modal & jual, satuan (Pcs, Kg, Liter, dll), serta batas notifikasi stok menipis.",
-            "3. Cara Pakai Menu Kasir" to "Ketuk produk untuk masuk ke keranjang (ketuk beberapa kali untuk menambah jumlah, angka pada ikon keranjang otomatis bertambah). Buka keranjang untuk atur diskon, PPN, pilih Tunai/QRIS/Transfer, lalu klik Selesaikan Transaksi.",
-            "4. Pengaturan PPN, Diskon & Struk" to "Atur tarif PPN otomatis/manual & diskon default di kartu PPN & Diskon. Ubah prefix nomor nota, pesan footer, dan sambungkan printer Bluetooth 58mm/80mm di Printer Kasir.",
-            "5. Laporan, Pengeluaran & Riwayat" to "Pantau omset, modal HPP, laba bersih, catat pengeluaran operasional, serta cetak ulang struk atau proses batal/refund di Riwayat.",
-            "6. Hak Akses Owner, Kasir, PIN & Pantau Jarak Jauh" to "Di Kelola Pengguna, Owner punya akses penuh & bisa mengatur fitur apa saja yang boleh dibuka Kasir/Karyawan (default hanya transaksi), memasang PIN Keamanan, serta menautkan 1–2 akun Google untuk pantau toko jarak jauh."
-        )
-    }
+    val steps = strings.tutorialStepsList()
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -1659,6 +1665,492 @@ internal fun TutorialUsageDialog(
                     horizontalArrangement = Arrangement.End
                 ) {
                     Button(onClick = onDismiss, shape = RoundedCornerShape(12.dp)) {
+                        Text(strings.close)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun LanguagePickerDialog(
+    selectedCode: String,
+    onDismiss: () -> Unit,
+    onSelectLanguage: (PosLanguageOption) -> Unit
+) {
+    val strings = LocalAppStrings.current
+    val normalizedSelected = AppLanguageCatalog.normalizeCode(selectedCode)
+    var searchQuery by remember { mutableStateOf("") }
+    var selectedRegion by remember { mutableStateOf<LocalizationRegion?>(null) }
+
+    val groupedLanguages = remember(searchQuery, selectedRegion) {
+        val q = searchQuery.trim().lowercase()
+        LocalizationRegion.entries
+            .filter { selectedRegion == null || it == selectedRegion }
+            .mapNotNull { region ->
+                val list = AppLanguageCatalog.all.filter { option ->
+                    option.region == region && (
+                        q.isEmpty() ||
+                            option.nativeName.lowercase().contains(q) ||
+                            option.regionLabel.lowercase().contains(q) ||
+                            option.code.lowercase().contains(q)
+                        )
+                }
+                if (list.isEmpty()) null else region to list
+            }
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            modifier = Modifier
+                .fillMaxWidth()
+                .safeDrawingPadding()
+                .imePadding()
+                .padding(horizontal = 20.dp, vertical = 16.dp)
+                .widthIn(max = 520.dp)
+                .heightIn(max = 680.dp)
+                .testTag("language_picker_dialog")
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 18.dp, end = 10.dp, top = 12.dp, bottom = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Rounded.Language, contentDescription = null, tint = BrandBlue)
+                        Column {
+                            Text(
+                                text = strings.languageSection,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = strings.languagePickerSubtitle,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Rounded.Close, contentDescription = strings.close)
+                    }
+                }
+                HorizontalDivider()
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        placeholder = { Text(strings.searchLanguageHint, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
+                        trailingIcon = if (searchQuery.isNotEmpty()) {
+                            {
+                                IconButton(onClick = { searchQuery = "" }) {
+                                    Icon(Icons.Rounded.Close, contentDescription = strings.close)
+                                }
+                            }
+                        } else null,
+                        singleLine = true,
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("language_search_input")
+                    )
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        FilterChip(
+                            selected = selectedRegion == null,
+                            onClick = { selectedRegion = null },
+                            label = { Text(strings.all) }
+                        )
+                        LocalizationRegion.entries.forEach { region ->
+                            FilterChip(
+                                selected = selectedRegion == region,
+                                onClick = {
+                                    selectedRegion = if (selectedRegion == region) null else region
+                                },
+                                label = { Text(region.label(strings)) }
+                            )
+                        }
+                    }
+                }
+
+                LazyColumn(
+                    modifier = Modifier
+                        .weight(1f, fill = false)
+                        .fillMaxWidth()
+                        .testTag("language_list"),
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    groupedLanguages.forEach { (region, itemsInRegion) ->
+                        item(key = "lang_hdr_${region.code}") {
+                            Text(
+                                text = region.label(strings),
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = BrandBlue,
+                                modifier = Modifier.padding(top = 6.dp, bottom = 2.dp, start = 4.dp)
+                            )
+                        }
+                        items(itemsInRegion, key = { it.code }) { option ->
+                            val isSelected = option.code == normalizedSelected
+                            Surface(
+                                onClick = { onSelectLanguage(option) },
+                                shape = RoundedCornerShape(14.dp),
+                                color = if (isSelected) BrandBlue.copy(alpha = 0.12f)
+                                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f),
+                                border = if (isSelected) BorderStroke(1.5.dp, BrandBlue)
+                                else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 52.dp)
+                                    .testTag("lang_option_${option.code}")
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Text(
+                                        text = option.flagEmoji,
+                                        fontSize = 22.sp
+                                    )
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = option.nativeName,
+                                            style = MaterialTheme.typography.titleSmall,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
+                                            color = if (isSelected) BrandBlue else MaterialTheme.colorScheme.onSurface,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Text(
+                                            text = "${option.regionLabel} • ${option.code.uppercase()}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                    if (isSelected) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.CheckCircle,
+                                            contentDescription = option.nativeName,
+                                            tint = BrandBlue
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                HorizontalDivider()
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 18.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text(strings.close)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun CurrencyPickerDialog(
+    selectedCode: String,
+    onDismiss: () -> Unit,
+    onSelectCurrency: (PosCurrencyOption) -> Unit
+) {
+    val strings = LocalAppStrings.current
+    val normalizedSelected = AppCurrencyCatalog.normalizeCode(selectedCode)
+    val activeOption = remember(normalizedSelected) { AppCurrencyCatalog.fromCode(normalizedSelected) }
+    var searchQuery by remember { mutableStateOf("") }
+    var selectedRegion by remember { mutableStateOf<LocalizationRegion?>(null) }
+
+    val groupedCurrencies = remember(searchQuery, selectedRegion) {
+        val q = searchQuery.trim().lowercase()
+        LocalizationRegion.entries
+            .filter { selectedRegion == null || it == selectedRegion }
+            .mapNotNull { region ->
+                val list = AppCurrencyCatalog.all.filter { option ->
+                    option.region == region && (
+                        q.isEmpty() ||
+                            option.code.lowercase().contains(q) ||
+                            option.name.lowercase().contains(q) ||
+                            option.country.lowercase().contains(q) ||
+                            option.symbol.lowercase().contains(q)
+                        )
+                }
+                if (list.isEmpty()) null else region to list
+            }
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            modifier = Modifier
+                .fillMaxWidth()
+                .safeDrawingPadding()
+                .imePadding()
+                .padding(horizontal = 20.dp, vertical = 16.dp)
+                .widthIn(max = 520.dp)
+                .heightIn(max = 690.dp)
+                .testTag("currency_picker_dialog")
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 18.dp, end = 10.dp, top = 12.dp, bottom = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Rounded.Payments, contentDescription = null, tint = BrandGreen)
+                        Column {
+                            Text(
+                                text = strings.currencyPickerTitle,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = strings.currencySettingsSubtitle,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Rounded.Close, contentDescription = strings.close)
+                    }
+                }
+                HorizontalDivider()
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = BrandGreen.copy(alpha = 0.10f),
+                        border = BorderStroke(1.dp, BrandGreen.copy(alpha = 0.25f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = strings.currencySamplePreviewLabel,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = "${activeOption.flagEmoji} ${activeOption.code} (${activeOption.symbol})",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                            Text(
+                                text = PosFormatters.formatCurrency(12500.50, activeOption.code),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontFamily = JetBrainsMonoFontFamily,
+                                fontWeight = FontWeight.Bold,
+                                color = BrandGreen
+                            )
+                        }
+                    }
+
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        placeholder = { Text(strings.searchCurrencyHint, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
+                        trailingIcon = if (searchQuery.isNotEmpty()) {
+                            {
+                                IconButton(onClick = { searchQuery = "" }) {
+                                    Icon(Icons.Rounded.Close, contentDescription = strings.close)
+                                }
+                            }
+                        } else null,
+                        singleLine = true,
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("currency_search_input")
+                    )
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        FilterChip(
+                            selected = selectedRegion == null,
+                            onClick = { selectedRegion = null },
+                            label = { Text(strings.all) }
+                        )
+                        LocalizationRegion.entries.forEach { region ->
+                            FilterChip(
+                                selected = selectedRegion == region,
+                                onClick = {
+                                    selectedRegion = if (selectedRegion == region) null else region
+                                },
+                                label = { Text(region.label(strings)) }
+                            )
+                        }
+                    }
+                }
+
+                LazyColumn(
+                    modifier = Modifier
+                        .weight(1f, fill = false)
+                        .fillMaxWidth()
+                        .testTag("currency_list"),
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    groupedCurrencies.forEach { (region, itemsInRegion) ->
+                        item(key = "curr_hdr_${region.code}") {
+                            Text(
+                                text = region.label(strings),
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = BrandGreen,
+                                modifier = Modifier.padding(top = 6.dp, bottom = 2.dp, start = 4.dp)
+                            )
+                        }
+                        items(itemsInRegion, key = { it.code }) { option ->
+                            val isSelected = option.code == normalizedSelected
+                            Surface(
+                                onClick = { onSelectCurrency(option) },
+                                shape = RoundedCornerShape(14.dp),
+                                color = if (isSelected) BrandGreen.copy(alpha = 0.12f)
+                                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f),
+                                border = if (isSelected) BorderStroke(1.5.dp, BrandGreen)
+                                else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 52.dp)
+                                    .testTag("currency_option_${option.code}")
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Text(
+                                        text = option.flagEmoji,
+                                        fontSize = 22.sp
+                                    )
+                                    Surface(
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = if (isSelected) BrandGreen else BrandBlue.copy(alpha = 0.12f)
+                                    ) {
+                                        Text(
+                                            text = option.symbol,
+                                            style = MaterialTheme.typography.labelLarge,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (isSelected) Color.White else BrandBlue,
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                        )
+                                    }
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "${option.code} — ${option.name}",
+                                            style = MaterialTheme.typography.titleSmall,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
+                                            color = if (isSelected) BrandGreen else MaterialTheme.colorScheme.onSurface,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Text(
+                                            text = option.country,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                    if (isSelected) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.CheckCircle,
+                                            contentDescription = option.code,
+                                            tint = BrandGreen
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                HorizontalDivider()
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 18.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) {
                         Text(strings.close)
                     }
                 }

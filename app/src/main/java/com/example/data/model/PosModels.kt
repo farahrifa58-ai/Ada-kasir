@@ -115,6 +115,7 @@ data class StoreSettings(
     val storeIconBgHex: String = "#1565C0",
     val darkTheme: Boolean = false,
     val language: String = "id",
+    val currencyCode: String = "IDR",
     val defaultTaxPercent: Double = 11.0,
     val defaultTaxType: String = TaxType.NONE.code,
     val defaultManualTaxAmount: Double = 0.0,
@@ -230,8 +231,18 @@ data class CheckoutTotals(
 )
 
 object PosCalculator {
-    fun roundCurrency(value: Double): Double =
-        (value.coerceAtLeast(0.0)).roundToLong().toDouble()
+    fun roundCurrency(
+        value: Double,
+        decimalPlaces: Int = com.example.util.PosFormatters.activeCurrency.decimalPlaces
+    ): Double {
+        val safe = value.coerceAtLeast(0.0)
+        return if (decimalPlaces <= 0) {
+            safe.roundToLong().toDouble()
+        } else {
+            val factor = Math.pow(10.0, decimalPlaces.toDouble())
+            (safe * factor).roundToLong() / factor
+        }
+    }
 
     fun roundQuantity(value: Double): Double =
         ((value.coerceAtLeast(0.0)) * 1000.0).roundToLong() / 1000.0
@@ -301,19 +312,27 @@ enum class ExpenseCategory(val labelId: String, val labelEn: String) {
     TRANSPORT("Transportasi", "Transport"),
     OTHER("Lainnya", "Other");
 
+    fun label(strings: com.example.ui.theme.AppStrings): String = when (this) {
+        OPERATIONAL -> strings.expCatOperational
+        STOCK_PURCHASE -> strings.expCatStockPurchase
+        UTILITIES -> strings.expCatUtilities
+        SALARY -> strings.expCatSalary
+        TRANSPORT -> strings.expCatTransport
+        OTHER -> strings.expCatOther
+    }
+
     companion object {
-        fun labelFor(codeOrName: String, language: String): String {
+        fun labelFor(codeOrName: String, strings: com.example.ui.theme.AppStrings): String {
             val found = entries.firstOrNull {
                 it.name.equals(codeOrName, ignoreCase = true) ||
                     it.labelId.equals(codeOrName, ignoreCase = true) ||
                     it.labelEn.equals(codeOrName, ignoreCase = true)
             }
-            return if (found != null) {
-                if (language == "en") found.labelEn else found.labelId
-            } else {
-                codeOrName.ifBlank { if (language == "en") OTHER.labelEn else OTHER.labelId }
-            }
+            return found?.label(strings) ?: codeOrName.ifBlank { strings.expCatOther }
         }
+
+        fun labelFor(codeOrName: String, language: String): String =
+            labelFor(codeOrName, com.example.ui.theme.appStringsForLanguage(language))
     }
 }
 

@@ -50,7 +50,8 @@ service cloud.firestore {
              (!('storeIconKey' in data) || (data.storeIconKey is string && data.storeIconKey.size() <= 40)) &&
              (!('storeIconBgHex' in data) || (data.storeIconBgHex is string && data.storeIconBgHex.size() <= 16)) &&
              data.darkTheme is bool &&
-             data.language is string && data.language in ['id', 'en'] &&
+             data.language is string && data.language in ['id', 'ms', 'tl', 'vi', 'th', 'ja', 'ko', 'zh', 'hi', 'en_gb', 'fr', 'de', 'es', 'it', 'nl', 'pt', 'pl', 'tr', 'ru', 'en', 'es_mx', 'pt_br', 'en_au'] &&
+             (!('currencyCode' in data) || (data.currencyCode is string && data.currencyCode in ['IDR', 'MYR', 'SGD', 'THB', 'VND', 'PHP', 'BND', 'JPY', 'KRW', 'CNY', 'INR', 'TWD', 'SAR', 'EUR', 'GBP', 'CHF', 'PLN', 'SEK', 'TRY', 'RUB', 'USD', 'CAD', 'BRL', 'MXN', 'AUD', 'NZD'])) &&
              data.defaultTaxPercent is number && data.defaultTaxPercent >= 0 && data.defaultTaxPercent <= 100 &&
              (!('defaultTaxType' in data) || (data.defaultTaxType is string && data.defaultTaxType in ['NONE', 'AUTO', 'MANUAL'])) &&
              (!('defaultManualTaxAmount' in data) || (data.defaultManualTaxAmount is number && data.defaultManualTaxAmount >= 0)) &&
@@ -176,7 +177,7 @@ service cloud.firestore {
                          incoming().keys().hasOnly([
                            'userId', 'storeName', 'ownerName', 'phone', 'address', 'operatingHours', 'photoData',
                            'storeIconKey', 'storeIconBgHex',
-                           'darkTheme', 'language', 'defaultTaxPercent',
+                           'darkTheme', 'language', 'currencyCode', 'defaultTaxPercent',
                            'defaultTaxType', 'defaultManualTaxAmount', 'defaultDiscountType', 'defaultDiscountValue',
                            'ownerEmail', 'monitorEmails',
                            'showReceiptLogo', 'showReceiptCashierName', 'showReceiptStorePhone',
@@ -195,7 +196,7 @@ service cloud.firestore {
                          incoming().diff(existing()).affectedKeys().hasOnly([
                            'storeName', 'ownerName', 'phone', 'address', 'operatingHours', 'photoData',
                            'storeIconKey', 'storeIconBgHex',
-                           'darkTheme', 'language', 'defaultTaxPercent',
+                           'darkTheme', 'language', 'currencyCode', 'defaultTaxPercent',
                            'defaultTaxType', 'defaultManualTaxAmount', 'defaultDiscountType', 'defaultDiscountValue',
                            'ownerEmail', 'monitorEmails',
                            'showReceiptLogo', 'showReceiptCashierName', 'showReceiptStorePhone',

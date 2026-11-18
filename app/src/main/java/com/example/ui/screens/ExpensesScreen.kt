@@ -70,9 +70,11 @@ import com.example.data.model.ExpenseCategory
 import com.example.data.model.ReportFilterMode
 import com.example.ui.components.SubScreenTopBar
 import com.example.ui.theme.BrandBlue
+import com.example.ui.theme.LocalAppCurrency
 import com.example.ui.theme.LocalAppStrings
 import com.example.ui.theme.StatusError
 import com.example.ui.theme.StatusWarning
+import com.example.ui.theme.amountWithCurrency
 import com.example.util.AnalyticsCalculator
 import com.example.util.PosFormatters
 import com.example.util.SalesReportCalculator
@@ -90,6 +92,7 @@ fun ExpensesScreen(
     modifier: Modifier = Modifier
 ) {
     val strings = LocalAppStrings.current
+    val currency = LocalAppCurrency.current
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf<String?>(null) }
     var editingExpense by remember { mutableStateOf<Expense?>(null) }
@@ -150,13 +153,13 @@ fun ExpensesScreen(
                         ) {
                             ExpenseSummaryCard(
                                 title = strings.todayExpensesLabel,
-                                value = PosFormatters.formatRupiah(todaySum),
+                                value = PosFormatters.formatCurrency(todaySum, currency.code),
                                 accent = StatusError,
                                 modifier = Modifier.weight(1f)
                             )
                             ExpenseSummaryCard(
                                 title = strings.monthExpensesLabel,
-                                value = PosFormatters.formatRupiah(monthSum),
+                                value = PosFormatters.formatCurrency(monthSum, currency.code),
                                 accent = StatusWarning,
                                 modifier = Modifier.weight(1f)
                             )
@@ -195,7 +198,7 @@ fun ExpensesScreen(
                                     label = { Text(strings.all) }
                                 )
                                 ExpenseCategory.entries.forEach { cat ->
-                                    val label = if (language == "en") cat.labelEn else cat.labelId
+                                    val label = cat.label(strings)
                                     FilterChip(
                                         selected = selectedCategory == cat.labelId,
                                         onClick = {
@@ -268,7 +271,7 @@ fun ExpensesScreen(
                                             color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
                                         ) {
                                             Text(
-                                                text = ExpenseCategory.labelFor(exp.category, language),
+                                                text = ExpenseCategory.labelFor(exp.category, strings),
                                                 style = MaterialTheme.typography.labelSmall,
                                                 color = MaterialTheme.colorScheme.primary,
                                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
@@ -291,7 +294,7 @@ fun ExpensesScreen(
                                     }
                                     Column(horizontalAlignment = Alignment.End) {
                                         Text(
-                                            text = PosFormatters.formatRupiah(exp.amount),
+                                            text = PosFormatters.formatCurrency(exp.amount, currency.code),
                                             style = MaterialTheme.typography.titleSmall,
                                             fontWeight = FontWeight.Bold,
                                             color = StatusError
@@ -427,10 +430,11 @@ private fun ExpenseFormDialog(
     onSave: (Expense) -> Unit
 ) {
     val strings = LocalAppStrings.current
+    val currency = LocalAppCurrency.current
     var title by remember(initial) { mutableStateOf(initial?.title ?: "") }
     var category by remember(initial) { mutableStateOf(initial?.category ?: ExpenseCategory.OPERATIONAL.labelId) }
-    var amountInput by remember(initial) {
-        mutableStateOf(if (initial != null && initial.amount > 0.0) initial.amount.toLong().toString() else "")
+    var amountInput by remember(initial, currency.code) {
+        mutableStateOf(if (initial != null && initial.amount > 0.0) PosFormatters.formatInputAmount(initial.amount, currency.code) else "")
     }
     var notes by remember(initial) { mutableStateOf(initial?.notes ?: "") }
     var expenseMillis by remember(initial) { mutableLongStateOf(initial?.expenseMillis ?: System.currentTimeMillis()) }
@@ -483,7 +487,7 @@ private fun ExpenseFormDialog(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     ExpenseCategory.entries.forEach { cat ->
-                        val label = if (language == "en") cat.labelEn else cat.labelId
+                        val label = cat.label(strings)
                         FilterChip(
                             selected = category == cat.labelId,
                             onClick = { category = cat.labelId },
@@ -495,8 +499,10 @@ private fun ExpenseFormDialog(
                 OutlinedTextField(
                     value = amountInput,
                     onValueChange = { amountInput = it },
-                    label = { Text(strings.expenseAmountLabel) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    label = { Text(strings.amountWithCurrency(strings.expenseAmountWord, currency.symbol)) },
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = if (currency.decimalPlaces > 0) KeyboardType.Decimal else KeyboardType.Number
+                    ),
                     singleLine = true,
                     shape = RoundedCornerShape(14.dp),
                     modifier = Modifier

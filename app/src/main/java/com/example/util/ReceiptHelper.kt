@@ -31,6 +31,7 @@ import com.example.data.model.PosTransaction
 import com.example.data.model.StoreSettings
 import com.example.data.model.TaxType
 import com.example.ui.theme.AppStrings
+import com.example.ui.theme.IndonesianStrings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -76,12 +77,12 @@ object ReceiptHelper {
             return l + " ".repeat(spaces) + right
         }
 
-        sb.appendLine(center(store.storeName.ifBlank { "ADA KASIR" }))
+        sb.appendLine(center(store.storeName.ifBlank { strings.appName }))
         if (store.showReceiptStoreAddress && store.address.isNotBlank()) {
             sb.appendLine(center(store.address))
         }
         if (store.showReceiptStorePhone && store.phone.isNotBlank()) {
-            sb.appendLine(center("Telp: ${store.phone}"))
+            sb.appendLine(center("${strings.receiptPhonePrefix}: ${store.phone}"))
         }
         if (store.showReceiptOperatingHours && store.operatingHours.isNotBlank()) {
             sb.appendLine(center(store.operatingHours.trim()))
@@ -90,7 +91,7 @@ object ReceiptHelper {
         sb.appendLine(leftRight(strings.receiptNumber, transaction.transactionNumber))
         sb.appendLine(leftRight(strings.receiptDate, PosFormatters.formatDateTime(transaction.transactionMillis, language)))
         if (store.showReceiptCashierName) {
-            val cashier = transaction.cashierName.ifBlank { store.ownerName }.ifBlank { "Kasir" }
+            val cashier = transaction.cashierName.ifBlank { store.ownerName }.ifBlank { strings.receiptCashierLabel }
             sb.appendLine(leftRight(strings.receiptCashierLabel, cashier))
         }
         if (store.showReceiptCustomerName && transaction.customerName.isNotBlank()) {
@@ -101,20 +102,20 @@ object ReceiptHelper {
 
         transaction.items.forEach { item ->
             sb.appendLine(item.productName.take(charsPerLine))
-            val qtyPrice = "${PosFormatters.formatQuantity(item.quantity, item.unit)} x ${PosFormatters.formatRupiah(item.unitPrice)}"
-            val sub = PosFormatters.formatRupiah(item.subtotal)
+            val qtyPrice = "${PosFormatters.formatQuantity(item.quantity, item.unit)} x ${PosFormatters.formatCurrency(item.unitPrice, store.currencyCode)}"
+            val sub = PosFormatters.formatCurrency(item.subtotal, store.currencyCode)
             sb.appendLine(leftRight("  $qtyPrice", sub))
         }
 
         sb.appendLine(line)
-        sb.appendLine(leftRight(strings.subtotalLabel, PosFormatters.formatRupiah(transaction.subtotal)))
+        sb.appendLine(leftRight(strings.subtotalLabel, PosFormatters.formatCurrency(transaction.subtotal, store.currencyCode)))
         if (transaction.discountAmount > 0.0) {
             val discTag = if (transaction.discountType == DiscountType.PERCENT.code) {
                 "${strings.discountLabel} (${PosFormatters.formatQuantity(transaction.discountValue)}%)"
             } else {
                 strings.discountLabel
             }
-            sb.appendLine(leftRight(discTag, "-${PosFormatters.formatRupiah(transaction.discountAmount)}"))
+            sb.appendLine(leftRight(discTag, "-${PosFormatters.formatCurrency(transaction.discountAmount, store.currencyCode)}"))
         }
         if (transaction.taxAmount > 0.0) {
             val taxTag = if (transaction.taxType == TaxType.AUTO.code) {
@@ -122,18 +123,18 @@ object ReceiptHelper {
             } else {
                 strings.taxLabel
             }
-            sb.appendLine(leftRight(taxTag, PosFormatters.formatRupiah(transaction.taxAmount)))
+            sb.appendLine(leftRight(taxTag, PosFormatters.formatCurrency(transaction.taxAmount, store.currencyCode)))
         }
         sb.appendLine(doubleLine)
-        sb.appendLine(leftRight(strings.grandTotalLabel.uppercase(), PosFormatters.formatRupiah(transaction.totalAmount)))
-        sb.appendLine(leftRight(strings.amountReceivedLabel, PosFormatters.formatRupiah(transaction.amountPaid)))
-        sb.appendLine(leftRight(strings.changeLabel, PosFormatters.formatRupiah(transaction.changeAmount)))
+        sb.appendLine(leftRight(strings.grandTotalLabel.uppercase(), PosFormatters.formatCurrency(transaction.totalAmount, store.currencyCode)))
+        sb.appendLine(leftRight(strings.amountReceivedLabel, PosFormatters.formatCurrency(transaction.amountPaid, store.currencyCode)))
+        sb.appendLine(leftRight(strings.changeLabel, PosFormatters.formatCurrency(transaction.changeAmount, store.currencyCode)))
         sb.appendLine(line)
         val footerText = store.receiptFooterMessage.trim().ifBlank { strings.receiptCashierNote }
         footerText.lines().filter { it.isNotBlank() }.forEach { footerLine ->
             sb.appendLine(center(footerLine.trim()))
         }
-        sb.appendLine(center("ADA KASIR - Rafline Dev"))
+        sb.appendLine(center("${strings.appName} - ${strings.developerBy}"))
         return sb.toString()
     }
 
@@ -195,7 +196,8 @@ object ReceiptHelper {
         pdf.finishPage(page)
 
         val dir = File(context.cacheDir, "receipts").apply { mkdirs() }
-        val file = File(dir, "Struk_${transaction.transactionNumber}.pdf")
+        val safePrefix = strings.receiptFilePrefix.replace(Regex("[^A-Za-z0-9_\\-]"), "").ifBlank { "Receipt" }
+        val file = File(dir, "${safePrefix}_${transaction.transactionNumber}.pdf")
         FileOutputStream(file).use { out ->
             pdf.writeTo(out)
         }
@@ -312,7 +314,8 @@ object ReceiptHelper {
         context: Context,
         printerAddress: String,
         store: StoreSettings,
-        paperWidth: PaperWidth
+        paperWidth: PaperWidth,
+        strings: AppStrings = IndonesianStrings
     ): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
             val manager = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
@@ -327,11 +330,11 @@ object ReceiptHelper {
             }
             val line = "-".repeat(paperWidth.charsPerLine)
             val sampleText = buildString {
-                appendLine(store.storeName.ifBlank { "ADA KASIR" }.take(paperWidth.charsPerLine))
+                appendLine(store.storeName.ifBlank { strings.appName }.take(paperWidth.charsPerLine))
                 appendLine(line)
-                appendLine("TES CETAK PRINTER ${paperWidth.mm}MM")
-                appendLine("Status: Terhubung & Siap")
-                appendLine("ADA KASIR - Rafline Dev")
+                appendLine("${strings.testPrintHeader} ${paperWidth.mm}MM")
+                appendLine(strings.testPrintStatusReady)
+                appendLine("${strings.appName} - ${strings.developerBy}")
                 appendLine(line)
                 appendLine("\n\n")
             }

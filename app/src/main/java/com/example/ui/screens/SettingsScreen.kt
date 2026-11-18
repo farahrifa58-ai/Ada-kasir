@@ -8,6 +8,7 @@ import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -43,6 +44,7 @@ import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material.icons.rounded.ManageAccounts
 import androidx.compose.material.icons.rounded.MenuBook
 import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.Payments
 import androidx.compose.material.icons.rounded.Percent
 import androidx.compose.material.icons.rounded.Print
 import androidx.compose.material.icons.rounded.Refresh
@@ -89,6 +91,8 @@ import androidx.core.content.ContextCompat
 import com.example.R
 import com.example.data.firebase.BackupSummary
 import com.example.data.model.AppAccessMode
+import com.example.data.model.AppCurrencyCatalog
+import com.example.data.model.AppLanguageCatalog
 import com.example.data.model.DiscountType
 import com.example.data.model.StaffRole
 import com.example.data.model.StoreDirectoryEntry
@@ -100,6 +104,7 @@ import com.example.ui.components.StoreProfileAvatar
 import com.example.ui.components.SubScreenTopBar
 import com.example.ui.theme.BrandBlue
 import com.example.ui.theme.BrandGreen
+import com.example.ui.theme.LocalAppCurrency
 import com.example.ui.theme.LocalAppStrings
 import com.example.ui.theme.StatusError
 import com.example.ui.theme.StatusSuccess
@@ -135,6 +140,7 @@ fun SettingsScreen(
     onDisconnectMonitorStore: () -> Unit = {},
     onSetDarkTheme: (Boolean) -> Unit,
     onSetLanguage: (String) -> Unit,
+    onSetCurrency: (String) -> Unit = {},
     onSelectPrinter: (String, String) -> Unit,
     onClearPrinter: () -> Unit,
     onSetPrinterPaperWidth: (Int) -> Unit,
@@ -146,11 +152,14 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     val strings = LocalAppStrings.current
+    val currency = LocalAppCurrency.current
     val scope = rememberCoroutineScope()
 
     var showProfileDialog by remember { mutableStateOf(false) }
     var showTaxDiscountDialog by remember { mutableStateOf(false) }
     var showAppearanceDialog by remember { mutableStateOf(false) }
+    var showLanguagePickerDialog by remember { mutableStateOf(false) }
+    var showCurrencyPickerDialog by remember { mutableStateOf(false) }
     var showPrinterDialog by remember { mutableStateOf(false) }
     var showReceiptCustomDialog by remember { mutableStateOf(false) }
     var showUserManageDialog by remember { mutableStateOf(false) }
@@ -179,10 +188,10 @@ fun SettingsScreen(
                         }
                         Toast.makeText(context, strings.backupSuccessMsg, Toast.LENGTH_SHORT).show()
                     } catch (e: Exception) {
-                        Toast.makeText(context, e.localizedMessage ?: "Export error", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, e.localizedMessage ?: strings.errSaveFailed, Toast.LENGTH_SHORT).show()
                     }
                 }.onFailure { err ->
-                    Toast.makeText(context, err.localizedMessage ?: "Backup failed", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, err.localizedMessage ?: strings.errSaveFailed, Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -217,16 +226,16 @@ fun SettingsScreen(
         "${strings.printerSettingsSubtitle} (${localPrefs.printerPaperWidthMm} mm)"
     }
 
-    val taxDiscountSummary = remember(store, strings) {
+    val taxDiscountSummary = remember(store, strings, currency.code) {
         val taxText = when (TaxType.fromCode(store.defaultTaxType)) {
             TaxType.NONE -> strings.taxNone
             TaxType.AUTO -> "${strings.taxAuto} ${PosFormatters.formatQuantity(store.defaultTaxPercent)}%"
-            TaxType.MANUAL -> "${strings.taxManual}: ${PosFormatters.formatRupiah(store.defaultManualTaxAmount)}"
+            TaxType.MANUAL -> "${strings.taxManualWord}: ${PosFormatters.formatCurrency(store.defaultManualTaxAmount, currency.code)}"
         }
         val discText = when (DiscountType.fromCode(store.defaultDiscountType)) {
             DiscountType.NONE -> strings.discountNone
             DiscountType.PERCENT -> "${strings.discountLabel} ${PosFormatters.formatQuantity(store.defaultDiscountValue)}%"
-            DiscountType.AMOUNT -> "${strings.discountLabel} ${PosFormatters.formatRupiah(store.defaultDiscountValue)}"
+            DiscountType.AMOUNT -> "${strings.discountLabel} ${PosFormatters.formatCurrency(store.defaultDiscountValue, currency.code)}"
         }
         "$taxText • $discText"
     }
@@ -286,15 +295,26 @@ fun SettingsScreen(
                 }
                 item {
                     val themeLabel = if (store.darkTheme) strings.darkTheme else strings.lightTheme
-                    val langLabel = if (store.language == "en") strings.languageEnglish else strings.languageIndonesian
+                    val langOption = AppLanguageCatalog.fromCode(store.language)
                     SettingsMenuCard(
                         icon = Icons.Rounded.Palette,
                         iconTint = Color(0xFF059669),
                         iconBg = Color(0xFFD1FAE5),
                         title = strings.appearanceLanguageTitle,
-                        subtitle = "$themeLabel • $langLabel",
+                        subtitle = "$themeLabel • ${langOption.flagEmoji} ${langOption.nativeName}",
                         onClick = { showAppearanceDialog = true },
                         modifier = Modifier.testTag("settings_appearance_item")
+                    )
+                }
+                item {
+                    SettingsMenuCard(
+                        icon = Icons.Rounded.Payments,
+                        iconTint = Color(0xFF16A34A),
+                        iconBg = Color(0xFFDCFCE7),
+                        title = strings.currencySectionTitle,
+                        subtitle = "${currency.flagEmoji} ${currency.code} (${currency.symbol}) • ${currency.name}",
+                        onClick = { showCurrencyPickerDialog = true },
+                        modifier = Modifier.testTag("settings_currency_item")
                     )
                 }
                 item {
@@ -308,7 +328,7 @@ fun SettingsScreen(
                         iconTint = Color(0xFF0284C7),
                         iconBg = Color(0xFFE0F2FE),
                         title = strings.userManageTitle,
-                        subtitle = "$roleLabel • ${store.monitorEmails.size}/2 Monitor",
+                        subtitle = "$roleLabel • ${store.monitorEmails.size}/2 ${strings.monitorWord}",
                         onClick = { showUserManageDialog = true },
                         trailingAccessory = {
                             IconButton(
@@ -349,7 +369,7 @@ fun SettingsScreen(
                         iconTint = Color(0xFFEA580C),
                         iconBg = Color(0xFFFFEDD5),
                         title = strings.receiptCustomTitle,
-                        subtitle = "Prefix: $prefix • ${strings.receiptCustomSubtitle}",
+                        subtitle = "${strings.prefixLabel}: $prefix • ${strings.receiptCustomSubtitle}",
                         onClick = { showReceiptCustomDialog = true },
                         modifier = Modifier.testTag("settings_receipt_customization_item")
                     )
@@ -538,6 +558,7 @@ fun SettingsScreen(
 
     // --- Dialog 2: Tampilan & Bahasa ---
     if (showAppearanceDialog) {
+        val currentLangOption = AppLanguageCatalog.fromCode(store.language)
         AlertDialog(
             onDismissRequest = { showAppearanceDialog = false },
             title = { Text(strings.appearanceLanguageTitle) },
@@ -568,22 +589,47 @@ fun SettingsScreen(
                         Icon(Icons.Rounded.Language, contentDescription = null, tint = BrandBlue, modifier = Modifier.size(18.dp))
                         Text(strings.languageSection, style = MaterialTheme.typography.titleSmall)
                     }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    Surface(
+                        onClick = {
+                            showAppearanceDialog = false
+                            showLanguagePickerDialog = true
+                        },
+                        shape = RoundedCornerShape(14.dp),
+                        color = BrandBlue.copy(alpha = 0.08f),
+                        border = BorderStroke(1.dp, BrandBlue.copy(alpha = 0.3f)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("open_language_picker_button")
                     ) {
-                        FilterChip(
-                            selected = store.language != "en",
-                            onClick = { onSetLanguage("id") },
-                            label = { Text(strings.languageIndonesian) },
-                            modifier = Modifier.weight(1f)
-                        )
-                        FilterChip(
-                            selected = store.language == "en",
-                            onClick = { onSetLanguage("en") },
-                            label = { Text(strings.languageEnglish) },
-                            modifier = Modifier.weight(1f)
-                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Text(text = currentLangOption.flagEmoji, style = MaterialTheme.typography.titleLarge)
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = currentLangOption.nativeName,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "${currentLangOption.regionLabel} • ${strings.languagePickerSubtitle}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = BrandBlue,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            Icon(
+                                imageVector = Icons.Rounded.ChevronRight,
+                                contentDescription = strings.languageSection,
+                                tint = BrandBlue
+                            )
+                        }
                     }
                 }
             },
@@ -591,6 +637,33 @@ fun SettingsScreen(
                 TextButton(onClick = { showAppearanceDialog = false }) {
                     Text(strings.close)
                 }
+            }
+        )
+    }
+
+    if (showLanguagePickerDialog) {
+        LanguagePickerDialog(
+            selectedCode = store.language,
+            onDismiss = { showLanguagePickerDialog = false },
+            onSelectLanguage = { selected ->
+                onSetLanguage(selected.code)
+                showLanguagePickerDialog = false
+            }
+        )
+    }
+
+    if (showCurrencyPickerDialog) {
+        CurrencyPickerDialog(
+            selectedCode = currency.code,
+            onDismiss = { showCurrencyPickerDialog = false },
+            onSelectCurrency = { selected ->
+                onSetCurrency(selected.code)
+                Toast.makeText(
+                    context,
+                    "${strings.currencySavedMsg} (${selected.code})",
+                    Toast.LENGTH_SHORT
+                ).show()
+                showCurrencyPickerDialog = false
             }
         )
     }
@@ -675,6 +748,7 @@ fun SettingsScreen(
     if (showAboutDialog) {
         AlertDialog(
             onDismissRequest = { showAboutDialog = false },
+            modifier = Modifier.testTag("about_app_dialog"),
             title = { Text(strings.aboutSection) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -698,7 +772,7 @@ fun SettingsScreen(
                                 color = MaterialTheme.colorScheme.primary
                             )
                             Text(
-                                text = "Developer: ${strings.developerBy}",
+                                text = "${strings.developerLabel}: ${strings.developerBy}",
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Medium
                             )
@@ -943,6 +1017,7 @@ private fun AboutAppBottomCard(
         onClick = onClick,
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         modifier = modifier.fillMaxWidth()
     ) {
@@ -989,6 +1064,11 @@ private fun AboutAppBottomCard(
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                     )
                 }
+                Icon(
+                    imageVector = Icons.Rounded.ChevronRight,
+                    contentDescription = strings.aboutSection,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
 
             Text(
@@ -1005,7 +1085,7 @@ private fun AboutAppBottomCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Developer: ${strings.developerBy}",
+                    text = "${strings.developerLabel}: ${strings.developerBy}",
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurface
@@ -1024,6 +1104,44 @@ private fun AboutAppBottomCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+            }
+
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = BrandBlue.copy(alpha = 0.10f),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Info,
+                            contentDescription = null,
+                            tint = BrandBlue,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = strings.aboutOpenHint,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = BrandBlue
+                        )
+                    }
+                    Icon(
+                        imageVector = Icons.Rounded.ChevronRight,
+                        contentDescription = null,
+                        tint = BrandBlue,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             }
         }
     }
@@ -1152,7 +1270,8 @@ private fun PrinterSettingsDialog(
                                                 context = context,
                                                 printerAddress = localPrefs.defaultPrinterAddress,
                                                 store = store,
-                                                paperWidth = paperWidth
+                                                paperWidth = paperWidth,
+                                                strings = strings
                                             )
                                             isTestingPrint = false
                                             val msg = if (res.isSuccess) strings.printSuccessMsg else "${strings.printFailedMsg}: ${res.exceptionOrNull()?.localizedMessage}"

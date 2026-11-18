@@ -67,9 +67,11 @@ import com.example.ui.components.PhotoPickerSheetDialog
 import com.example.ui.components.ProductPhotoBox
 import com.example.ui.components.SubScreenTopBar
 import com.example.ui.theme.BrandGreen
+import com.example.ui.theme.LocalAppCurrency
 import com.example.ui.theme.LocalAppStrings
 import com.example.ui.theme.StatusError
 import com.example.ui.theme.StatusWarning
+import com.example.ui.theme.amountWithCurrency
 import com.example.util.PosFormatters
 
 @Composable
@@ -322,6 +324,7 @@ private fun ProductInventoryRowCard(
     onDelete: () -> Unit
 ) {
     val strings = LocalAppStrings.current
+    val currency = LocalAppCurrency.current
     Card(
         onClick = onEdit,
         shape = RoundedCornerShape(18.dp),
@@ -368,7 +371,7 @@ private fun ProductInventoryRowCard(
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
-                        text = "${PosFormatters.formatRupiah(product.sellPrice)}/${product.unit}",
+                        text = "${PosFormatters.formatCurrency(product.sellPrice, currency.code)}/${product.unit}",
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
@@ -447,20 +450,21 @@ private fun ProductFormDialog(
     onSave: (Product) -> Unit
 ) {
     val strings = LocalAppStrings.current
+    val currency = LocalAppCurrency.current
     val isEdit = initialProduct != null
 
     var photoData by remember { mutableStateOf(initialProduct?.photoData ?: "") }
     var name by remember { mutableStateOf(initialProduct?.name ?: "") }
     var sku by remember { mutableStateOf(initialProduct?.sku ?: "") }
     var category by remember {
-        mutableStateOf(initialProduct?.category?.ifBlank { null } ?: categories.firstOrNull()?.name ?: "Lainnya")
+        mutableStateOf(initialProduct?.category?.ifBlank { null } ?: categories.firstOrNull()?.name ?: strings.defaultCategoryOther)
     }
     var unit by remember { mutableStateOf(initialProduct?.unit ?: ProductUnit.PCS.label) }
     var costPrice by remember {
-        mutableStateOf(if (initialProduct != null && initialProduct.costPrice > 0) initialProduct.costPrice.toLong().toString() else "")
+        mutableStateOf(if (initialProduct != null && initialProduct.costPrice > 0) PosFormatters.formatInputAmount(initialProduct.costPrice, currency.code) else "")
     }
     var sellPrice by remember {
-        mutableStateOf(if (initialProduct != null && initialProduct.sellPrice > 0) initialProduct.sellPrice.toLong().toString() else "")
+        mutableStateOf(if (initialProduct != null && initialProduct.sellPrice > 0) PosFormatters.formatInputAmount(initialProduct.sellPrice, currency.code) else "")
     }
     var stock by remember {
         mutableStateOf(if (initialProduct != null) PosFormatters.formatQuantity(initialProduct.stock) else "")
@@ -611,6 +615,7 @@ private fun ProductFormDialog(
                 }
 
                 // 6 & 7. Cost Price & Sell Price
+                val priceKeyboard = if (currency.decimalPlaces > 0) KeyboardType.Decimal else KeyboardType.Number
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -618,16 +623,16 @@ private fun ProductFormDialog(
                     OutlinedTextField(
                         value = costPrice,
                         onValueChange = { costPrice = it },
-                        label = { Text(strings.productCostPriceLabel) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        label = { Text(strings.amountWithCurrency(strings.productCostPriceWord, currency.symbol)) },
+                        keyboardOptions = KeyboardOptions(keyboardType = priceKeyboard),
                         singleLine = true,
                         modifier = Modifier.weight(1f)
                     )
                     OutlinedTextField(
                         value = sellPrice,
                         onValueChange = { sellPrice = it },
-                        label = { Text(strings.productSellPriceLabel) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        label = { Text(strings.amountWithCurrency(strings.productSellPriceWord, currency.symbol)) },
+                        keyboardOptions = KeyboardOptions(keyboardType = priceKeyboard),
                         singleLine = true,
                         modifier = Modifier.weight(1f)
                     )

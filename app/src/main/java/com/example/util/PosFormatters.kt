@@ -1,12 +1,16 @@
 package com.example.util
 
+import com.example.data.model.AppCurrencyCatalog
+import com.example.data.model.AppLanguageCatalog
 import com.example.data.model.DashboardPeriod
 import com.example.data.model.Expense
 import com.example.data.model.PaymentMethod
+import com.example.data.model.PosCurrencyOption
 import com.example.data.model.PosTransaction
 import com.example.data.model.ReportFilterMode
 import com.example.data.model.TransactionStatus
 import com.example.ui.theme.AppStrings
+import java.text.DateFormatSymbols
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.text.SimpleDateFormat
@@ -18,17 +22,48 @@ import kotlin.math.roundToLong
 
 object PosFormatters {
     private val idLocale: Locale = Locale.forLanguageTag("id-ID")
-    private val idSymbols = DecimalFormatSymbols(idLocale).apply {
-        groupingSeparator = '.'
-        decimalSeparator = ','
-    }
-    private val currencyFormat = DecimalFormat("#,##0", idSymbols)
-    private val qtyDecimalFormat = DecimalFormat("#,##0.##", idSymbols)
 
-    fun formatRupiah(amount: Double): String {
-        val rounded = amount.roundToLong()
-        return "Rp ${currencyFormat.format(rounded)}"
+    @Volatile
+    var activeCurrencyCode: String = "IDR"
+        private set
+
+    val activeCurrency: PosCurrencyOption
+        get() = AppCurrencyCatalog.fromCode(activeCurrencyCode)
+
+    fun syncActiveCurrency(code: String?) {
+        activeCurrencyCode = AppCurrencyCatalog.normalizeCode(code)
     }
+
+    fun formatCurrency(amount: Double, currencyCode: String = activeCurrencyCode): String {
+        val option = AppCurrencyCatalog.fromCode(currencyCode)
+        val symbols = DecimalFormatSymbols(Locale.US).apply {
+            groupingSeparator = option.groupingSeparator
+            decimalSeparator = option.decimalSeparator
+        }
+        val sign = if (amount < -0.0001) "-" else ""
+        val absValue = abs(amount)
+        return if (option.decimalPlaces <= 0) {
+            val rounded = absValue.roundToLong()
+            val fmt = DecimalFormat("#,##0", symbols)
+            "$sign${option.symbol} ${fmt.format(rounded)}"
+        } else {
+            val pattern = "#,##0." + "0".repeat(option.decimalPlaces)
+            val fmt = DecimalFormat(pattern, symbols)
+            "$sign${option.symbol} ${fmt.format(absValue)}"
+        }
+    }
+
+    fun formatInputAmount(amount: Double, currencyCode: String = activeCurrencyCode): String {
+        if (amount <= 0.0) return ""
+        val option = AppCurrencyCatalog.fromCode(currencyCode)
+        return if (option.decimalPlaces <= 0) {
+            amount.roundToLong().toString()
+        } else {
+            String.format(Locale.US, "%.${option.decimalPlaces}f", amount)
+        }
+    }
+
+    fun formatRupiah(amount: Double): String = formatCurrency(amount, activeCurrencyCode)
 
     fun formatQuantity(qty: Double, unit: String = ""): String {
         val isWhole = abs(qty - qty.roundToLong()) < 0.0001
@@ -41,7 +76,7 @@ object PosFormatters {
     }
 
     fun formatDateTime(millis: Long, language: String = "id"): String {
-        val locale = if (language == "en") Locale.ENGLISH else idLocale
+        val locale = AppLanguageCatalog.localeFor(language)
         val sdf = SimpleDateFormat("dd MMM yyyy, HH:mm", locale)
         return sdf.format(Date(millis))
     }
@@ -52,13 +87,13 @@ object PosFormatters {
     }
 
     fun formatDateOnly(millis: Long, language: String = "id"): String {
-        val locale = if (language == "en") Locale.ENGLISH else idLocale
+        val locale = AppLanguageCatalog.localeFor(language)
         val sdf = SimpleDateFormat("dd MMMM yyyy", locale)
         return sdf.format(Date(millis))
     }
 
     fun formatMonthYear(year: Int, monthZeroBased: Int, language: String = "id"): String {
-        val locale = if (language == "en") Locale.ENGLISH else idLocale
+        val locale = AppLanguageCatalog.localeFor(language)
         val cal = Calendar.getInstance().apply {
             set(Calendar.YEAR, year)
             set(Calendar.MONTH, monthZeroBased)
@@ -365,7 +400,8 @@ object SalesReportCalculator {
         mode: ReportFilterMode,
         year: Int,
         monthZeroBased: Int,
-        dayOfMonth: Int
+        dayOfMonth: Int,
+        language: String = "id"
     ): SalesReportSummary {
         val (startMs, endMs) = dateRangeFor(mode, year, monthZeroBased, dayOfMonth)
         val completedTx = transactions
@@ -438,7 +474,11 @@ object SalesReportCalculator {
                 }
             }
             ReportFilterMode.YEAR -> {
-                val monthLabels = listOf("Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des")
+                val fallbackMonths = listOf("Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des")
+                val localeMonths = DateFormatSymbols(AppLanguageCatalog.localeFor(language)).shortMonths
+                val monthLabels = (0 until 12).map { idx ->
+                    localeMonths.getOrNull(idx)?.takeIf { it.isNotBlank() } ?: fallbackMonths[idx]
+                }
                 val sales = DoubleArray(12)
                 val counts = IntArray(12)
                 completedTx.forEach { tx ->

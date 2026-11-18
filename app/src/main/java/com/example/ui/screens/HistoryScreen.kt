@@ -61,6 +61,7 @@ import com.example.ui.components.ReceiptDialog
 import com.example.ui.components.SubScreenTopBar
 import com.example.ui.theme.BrandGreen
 import com.example.ui.theme.JetBrainsMonoFontFamily
+import com.example.ui.theme.LocalAppCurrency
 import com.example.ui.theme.LocalAppStrings
 import com.example.ui.theme.StatusError
 import com.example.ui.theme.StatusSuccess
@@ -260,6 +261,7 @@ private fun HistoryTransactionCard(
     onClick: () -> Unit
 ) {
     val strings = LocalAppStrings.current
+    val currency = LocalAppCurrency.current
     val statusColor = when (TransactionStatus.fromCode(transaction.status)) {
         TransactionStatus.COMPLETED -> StatusSuccess
         TransactionStatus.CANCELLED -> StatusError
@@ -316,7 +318,7 @@ private fun HistoryTransactionCard(
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Text(
-                    text = PosFormatters.formatRupiah(transaction.totalAmount),
+                    text = PosFormatters.formatCurrency(transaction.totalAmount, currency.code),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -348,6 +350,7 @@ private fun TransactionDetailDialog(
 ) {
     val context = LocalContext.current
     val strings = LocalAppStrings.current
+    val currency = LocalAppCurrency.current
     val language = store.language
     var confirmAction by remember { mutableStateOf<TransactionStatus?>(null) }
     var reasonInput by remember { mutableStateOf("") }
@@ -417,13 +420,13 @@ private fun TransactionDetailDialog(
                         Column(modifier = Modifier.weight(1f)) {
                             Text(item.productName, style = MaterialTheme.typography.bodyMedium)
                             Text(
-                                text = "${PosFormatters.formatQuantity(item.quantity, item.unit)} x ${PosFormatters.formatRupiah(item.unitPrice)}",
+                                text = "${PosFormatters.formatQuantity(item.quantity, item.unit)} x ${PosFormatters.formatCurrency(item.unitPrice, currency.code)}",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         Text(
-                            text = PosFormatters.formatRupiah(item.subtotal),
+                            text = PosFormatters.formatCurrency(item.subtotal, currency.code),
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -432,16 +435,16 @@ private fun TransactionDetailDialog(
 
                 HorizontalDivider()
 
-                DetailAmountRow(strings.subtotalLabel, PosFormatters.formatRupiah(transaction.subtotal))
+                DetailAmountRow(strings.subtotalLabel, PosFormatters.formatCurrency(transaction.subtotal, currency.code))
                 if (transaction.discountAmount > 0.0) {
-                    DetailAmountRow(strings.discountLabel, "-${PosFormatters.formatRupiah(transaction.discountAmount)}")
+                    DetailAmountRow(strings.discountLabel, "-${PosFormatters.formatCurrency(transaction.discountAmount, currency.code)}")
                 }
                 if (transaction.taxAmount > 0.0) {
-                    DetailAmountRow(strings.taxLabel, PosFormatters.formatRupiah(transaction.taxAmount))
+                    DetailAmountRow(strings.taxLabel, PosFormatters.formatCurrency(transaction.taxAmount, currency.code))
                 }
-                DetailAmountRow(strings.grandTotalLabel, PosFormatters.formatRupiah(transaction.totalAmount), bold = true)
-                DetailAmountRow(strings.amountReceivedLabel, PosFormatters.formatRupiah(transaction.amountPaid))
-                DetailAmountRow(strings.changeLabel, PosFormatters.formatRupiah(transaction.changeAmount))
+                DetailAmountRow(strings.grandTotalLabel, PosFormatters.formatCurrency(transaction.totalAmount, currency.code), bold = true)
+                DetailAmountRow(strings.amountReceivedLabel, PosFormatters.formatCurrency(transaction.amountPaid, currency.code))
+                DetailAmountRow(strings.changeLabel, PosFormatters.formatCurrency(transaction.changeAmount, currency.code))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),

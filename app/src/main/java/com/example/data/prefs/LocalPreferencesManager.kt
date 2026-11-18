@@ -8,6 +8,8 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.example.data.model.AppCurrencyCatalog
+import com.example.data.model.AppLanguageCatalog
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -19,6 +21,7 @@ private val Context.adaKasirDataStore: DataStore<Preferences> by preferencesData
 data class LocalAppPrefs(
     val darkTheme: Boolean = false,
     val language: String = "id",
+    val currencyCode: String = "IDR",
     val defaultPrinterName: String = "",
     val defaultPrinterAddress: String = "",
     val printerPaperWidthMm: Int = 58,
@@ -33,6 +36,7 @@ class LocalPreferencesManager(private val context: Context) {
     private object Keys {
         val DARK_THEME = booleanPreferencesKey("dark_theme")
         val LANGUAGE = stringPreferencesKey("language")
+        val CURRENCY_CODE = stringPreferencesKey("currency_code")
         val PRINTER_NAME = stringPreferencesKey("printer_name")
         val PRINTER_ADDRESS = stringPreferencesKey("printer_address")
         val PRINTER_PAPER_MM = intPreferencesKey("printer_paper_mm")
@@ -46,7 +50,8 @@ class LocalPreferencesManager(private val context: Context) {
     val prefsFlow: Flow<LocalAppPrefs> = context.adaKasirDataStore.data.map { prefs ->
         LocalAppPrefs(
             darkTheme = prefs[Keys.DARK_THEME] ?: false,
-            language = prefs[Keys.LANGUAGE] ?: "id",
+            language = AppLanguageCatalog.normalizeCode(prefs[Keys.LANGUAGE]),
+            currencyCode = AppCurrencyCatalog.normalizeCode(prefs[Keys.CURRENCY_CODE]),
             defaultPrinterName = prefs[Keys.PRINTER_NAME] ?: "",
             defaultPrinterAddress = prefs[Keys.PRINTER_ADDRESS] ?: "",
             printerPaperWidthMm = if ((prefs[Keys.PRINTER_PAPER_MM] ?: 58) == 80) 80 else 58,
@@ -66,7 +71,13 @@ class LocalPreferencesManager(private val context: Context) {
 
     suspend fun setLanguage(language: String) {
         context.adaKasirDataStore.edit { prefs ->
-            prefs[Keys.LANGUAGE] = if (language == "en") "en" else "id"
+            prefs[Keys.LANGUAGE] = AppLanguageCatalog.normalizeCode(language)
+        }
+    }
+
+    suspend fun setCurrencyCode(currencyCode: String) {
+        context.adaKasirDataStore.edit { prefs ->
+            prefs[Keys.CURRENCY_CODE] = AppCurrencyCatalog.normalizeCode(currencyCode)
         }
     }
 

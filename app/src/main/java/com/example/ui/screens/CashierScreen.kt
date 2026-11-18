@@ -98,9 +98,11 @@ import com.example.data.model.TaxType
 import com.example.ui.components.ProductPhotoBox
 import com.example.ui.components.SubScreenTopBar
 import com.example.ui.theme.BrandBlue
+import com.example.ui.theme.LocalAppCurrency
 import com.example.ui.theme.LocalAppStrings
 import com.example.ui.theme.StatusError
 import com.example.ui.theme.StatusWarning
+import com.example.ui.theme.amountWithCurrency
 import com.example.ui.viewmodel.CashierUiState
 import com.example.util.PosFormatters
 import kotlin.math.abs
@@ -128,6 +130,7 @@ fun CashierScreen(
     modifier: Modifier = Modifier
 ) {
     val strings = LocalAppStrings.current
+    val currency = LocalAppCurrency.current
     val totalCartCount = remember(cashierState.cart) {
         PosCalculator.totalCartItemCount(cashierState.cart)
     }
@@ -318,7 +321,7 @@ fun CashierScreen(
                                             overflow = TextOverflow.Ellipsis
                                         )
                                         Text(
-                                            text = PosFormatters.formatRupiah(totals.grandTotal),
+                                            text = PosFormatters.formatCurrency(totals.grandTotal, currency.code),
                                             style = MaterialTheme.typography.titleMedium,
                                             fontWeight = FontWeight.ExtraBold,
                                             color = Color.White
@@ -589,6 +592,7 @@ private fun CashierProductRowCard(
     onTapQty: () -> Unit
 ) {
     val strings = LocalAppStrings.current
+    val currency = LocalAppCurrency.current
     val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val isInCart = inCartQty > 0.0001
     val enabled = !product.isOutOfStock
@@ -654,7 +658,7 @@ private fun CashierProductRowCard(
                 Text(
                     text = buildAnnotatedString {
                         withStyle(SpanStyle(color = BrandBlue, fontWeight = FontWeight.ExtraBold)) {
-                            append(PosFormatters.formatRupiah(product.sellPrice))
+                            append(PosFormatters.formatCurrency(product.sellPrice, currency.code))
                         }
                         withStyle(SpanStyle(color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Normal)) {
                             append("/${product.unit.lowercase()}")
@@ -704,7 +708,7 @@ private fun CashierProductRowCard(
                         ) {
                             Icon(
                                 imageVector = Icons.Rounded.Remove,
-                                contentDescription = "Kurangi ${product.name}",
+                                contentDescription = "${strings.decreaseQtyLabel} ${product.name}",
                                 tint = BrandBlue,
                                 modifier = Modifier.size(18.dp)
                             )
@@ -725,7 +729,7 @@ private fun CashierProductRowCard(
                         ) {
                             Icon(
                                 imageVector = Icons.Rounded.Add,
-                                contentDescription = "Tambah ${product.name}",
+                                contentDescription = "${strings.increaseQtyLabel} ${product.name}",
                                 tint = BrandBlue,
                                 modifier = Modifier.size(18.dp)
                             )
@@ -776,9 +780,10 @@ private fun DecimalQuantityDialog(
     onConfirm: (Double) -> Unit
 ) {
     val strings = LocalAppStrings.current
+    val currency = LocalAppCurrency.current
     var qtyInput by remember(product.id) { mutableStateOf(initialQty.toString()) }
     val parsedQty = qtyInput.replace(",", ".").toDoubleOrNull() ?: 0.0
-    val estimated = PosCalculator.roundCurrency(product.sellPrice * parsedQty.coerceAtLeast(0.0))
+    val estimated = PosCalculator.roundCurrency(product.sellPrice * parsedQty.coerceAtLeast(0.0), currency.decimalPlaces)
     val unitLower = product.unit.lowercase()
 
     Dialog(
@@ -884,7 +889,7 @@ private fun DecimalQuantityDialog(
                 )
 
                 Text(
-                    text = "${strings.estimatedPriceLabel}: ${PosFormatters.formatRupiah(estimated)}",
+                    text = "${strings.estimatedPriceLabel}: ${PosFormatters.formatCurrency(estimated, currency.code)}",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = BrandBlue
@@ -975,6 +980,7 @@ private fun CartAndCheckoutContent(
     modifier: Modifier = Modifier
 ) {
     val strings = LocalAppStrings.current
+    val currency = LocalAppCurrency.current
     val blueChipColors = FilterChipDefaults.filterChipColors(
         selectedContainerColor = BrandBlue,
         selectedLabelColor = Color.White
@@ -1130,7 +1136,7 @@ private fun CartAndCheckoutContent(
                             selected = cashierState.discountType == DiscountType.AMOUNT,
                             onClick = { onDiscountChange(DiscountType.AMOUNT, cashierState.discountInput) },
                             colors = blueChipColors,
-                            label = { Text("Rp") }
+                            label = { Text(currency.symbol) }
                         )
                     }
                     if (cashierState.discountType != DiscountType.NONE) {
@@ -1139,10 +1145,17 @@ private fun CartAndCheckoutContent(
                             onValueChange = { onDiscountChange(cashierState.discountType, it) },
                             label = {
                                 Text(
-                                    if (cashierState.discountType == DiscountType.PERCENT) strings.discountPercent else strings.discountAmount
+                                    if (cashierState.discountType == DiscountType.PERCENT) strings.discountPercent
+                                    else strings.amountWithCurrency(strings.discountAmountWord, currency.symbol)
                                 )
                             },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = if (cashierState.discountType == DiscountType.PERCENT || currency.decimalPlaces > 0) {
+                                    KeyboardType.Decimal
+                                } else {
+                                    KeyboardType.Number
+                                }
+                            ),
                             singleLine = true,
                             shape = RoundedCornerShape(14.dp),
                             colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = BrandBlue),
@@ -1171,15 +1184,17 @@ private fun CartAndCheckoutContent(
                             selected = cashierState.taxType == TaxType.MANUAL,
                             onClick = { onTaxChange(TaxType.MANUAL, cashierState.manualTaxInput) },
                             colors = blueChipColors,
-                            label = { Text(strings.taxManual) }
+                            label = { Text(strings.amountWithCurrency(strings.taxManualWord, currency.symbol)) }
                         )
                     }
                     if (cashierState.taxType == TaxType.MANUAL) {
                         OutlinedTextField(
                             value = cashierState.manualTaxInput,
                             onValueChange = { onTaxChange(TaxType.MANUAL, it) },
-                            label = { Text(strings.taxManual) },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            label = { Text(strings.amountWithCurrency(strings.taxManualWord, currency.symbol)) },
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = if (currency.decimalPlaces > 0) KeyboardType.Decimal else KeyboardType.Number
+                            ),
                             singleLine = true,
                             shape = RoundedCornerShape(14.dp),
                             colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = BrandBlue),
@@ -1229,7 +1244,9 @@ private fun CartAndCheckoutContent(
                             value = cashierState.amountPaidInput,
                             onValueChange = onAmountPaidChange,
                             label = { Text(strings.amountReceivedLabel) },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = if (currency.decimalPlaces > 0) KeyboardType.Decimal else KeyboardType.Number
+                            ),
                             singleLine = true,
                             shape = RoundedCornerShape(14.dp),
                             colors = OutlinedTextFieldDefaults.colors(
@@ -1254,8 +1271,8 @@ private fun CartAndCheckoutContent(
                     }
 
                     if (cashierState.paymentMethod == PaymentMethod.CASH && totals.grandTotal > 0.0) {
-                        val quickNominals = listOf(10_000L, 20_000L, 50_000L, 100_000L)
-                            .filter { it >= totals.grandTotal.toLong() }
+                        val quickNominals = currency.quickCashNominals
+                            .filter { it >= totals.grandTotal - 0.0001 }
                             .take(3)
                         if (quickNominals.isNotEmpty()) {
                             Row(
@@ -1264,7 +1281,7 @@ private fun CartAndCheckoutContent(
                             ) {
                                 quickNominals.forEach { nominal ->
                                     FilledTonalButton(
-                                        onClick = { onAmountPaidChange(nominal.toString()) },
+                                        onClick = { onAmountPaidChange(PosFormatters.formatInputAmount(nominal, currency.code)) },
                                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                                         colors = ButtonDefaults.filledTonalButtonColors(
                                             containerColor = BrandBlue.copy(alpha = 0.10f),
@@ -1273,7 +1290,7 @@ private fun CartAndCheckoutContent(
                                         shape = RoundedCornerShape(10.dp)
                                     ) {
                                         Text(
-                                            text = PosFormatters.formatRupiah(nominal.toDouble()),
+                                            text = PosFormatters.formatCurrency(nominal, currency.code),
                                             style = MaterialTheme.typography.labelMedium,
                                             fontWeight = FontWeight.SemiBold
                                         )
@@ -1302,12 +1319,12 @@ private fun CartAndCheckoutContent(
                         fontWeight = FontWeight.Bold,
                         color = BrandBlue
                     )
-                    SummaryLine(strings.subtotalLabel, PosFormatters.formatRupiah(totals.subtotal))
+                    SummaryLine(strings.subtotalLabel, PosFormatters.formatCurrency(totals.subtotal, currency.code))
                     if (totals.discountAmount > 0.0) {
-                        SummaryLine(strings.discountLabel, "-${PosFormatters.formatRupiah(totals.discountAmount)}")
+                        SummaryLine(strings.discountLabel, "-${PosFormatters.formatCurrency(totals.discountAmount, currency.code)}")
                     }
                     if (totals.taxAmount > 0.0) {
-                        SummaryLine(strings.taxLabel, PosFormatters.formatRupiah(totals.taxAmount))
+                        SummaryLine(strings.taxLabel, PosFormatters.formatCurrency(totals.taxAmount, currency.code))
                     }
                     HorizontalDivider(
                         color = BrandBlue.copy(alpha = 0.18f),
@@ -1324,7 +1341,7 @@ private fun CartAndCheckoutContent(
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = PosFormatters.formatRupiah(totals.grandTotal),
+                            text = PosFormatters.formatCurrency(totals.grandTotal, currency.code),
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.ExtraBold,
                             color = BrandBlue
@@ -1338,7 +1355,7 @@ private fun CartAndCheckoutContent(
                         ) {
                             Text(strings.changeLabel, style = MaterialTheme.typography.titleSmall)
                             Text(
-                                text = PosFormatters.formatRupiah(totals.changeAmount),
+                                text = PosFormatters.formatCurrency(totals.changeAmount, currency.code),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = BrandBlue
@@ -1391,6 +1408,8 @@ private fun CartLineRow(
     onTapQty: () -> Unit,
     onRemove: () -> Unit
 ) {
+    val strings = LocalAppStrings.current
+    val currency = LocalAppCurrency.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1407,7 +1426,7 @@ private fun CartLineRow(
                 overflow = TextOverflow.Ellipsis
             )
             Text(
-                text = "${PosFormatters.formatRupiah(line.product.sellPrice)}/${line.product.unit.lowercase()} • ${PosFormatters.formatRupiah(line.subtotal)}",
+                text = "${PosFormatters.formatCurrency(line.product.sellPrice, currency.code)}/${line.product.unit.lowercase()} • ${PosFormatters.formatCurrency(line.subtotal, currency.code)}",
                 style = MaterialTheme.typography.bodySmall,
                 color = BrandBlue,
                 fontWeight = FontWeight.Medium
@@ -1419,7 +1438,7 @@ private fun CartLineRow(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onDecrement, modifier = Modifier.size(34.dp)) {
-                    Icon(Icons.Rounded.Remove, contentDescription = "Decrease", tint = BrandBlue, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Rounded.Remove, contentDescription = strings.decreaseQtyLabel, tint = BrandBlue, modifier = Modifier.size(16.dp))
                 }
                 Text(
                     text = PosFormatters.formatQuantity(line.quantity, line.product.unit),
@@ -1431,12 +1450,12 @@ private fun CartLineRow(
                         .padding(horizontal = 4.dp)
                 )
                 IconButton(onClick = onIncrement, modifier = Modifier.size(34.dp)) {
-                    Icon(Icons.Rounded.Add, contentDescription = "Increase", tint = BrandBlue, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Rounded.Add, contentDescription = strings.increaseQtyLabel, tint = BrandBlue, modifier = Modifier.size(16.dp))
                 }
             }
         }
         IconButton(onClick = onRemove, modifier = Modifier.size(34.dp)) {
-            Icon(Icons.Rounded.DeleteOutline, contentDescription = "Remove", tint = StatusError, modifier = Modifier.size(18.dp))
+            Icon(Icons.Rounded.DeleteOutline, contentDescription = strings.delete, tint = StatusError, modifier = Modifier.size(18.dp))
         }
     }
 }

@@ -74,6 +74,7 @@ import com.example.data.model.TransactionStatus
 import com.example.ui.components.StoreProfileAvatar
 import com.example.ui.theme.BrandBlue
 import com.example.ui.theme.BrandGreen
+import com.example.ui.theme.LocalAppCurrency
 import com.example.ui.theme.LocalAppStrings
 import com.example.ui.theme.StatusWarning
 import com.example.ui.viewmodel.AppMenu
@@ -99,6 +100,7 @@ fun HomeMenuScreen(
     modifier: Modifier = Modifier
 ) {
     val strings = LocalAppStrings.current
+    val currency = LocalAppCurrency.current
     val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
 
     // Subtle animated supermarket backdrop motion for cartoon/animated liveliness
@@ -182,7 +184,7 @@ fun HomeMenuScreen(
         // 1. Full-screen Cartoon / Animated Supermarket Background
         Image(
             painter = painterResource(id = R.drawable.img_supermarket_bg),
-            contentDescription = "Supermarket cartoon illustration background",
+            contentDescription = strings.supermarketBgCd,
             contentScale = ContentScale.Crop,
             modifier = Modifier
                 .fillMaxSize()
@@ -255,7 +257,7 @@ fun HomeMenuScreen(
                     )
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = store.storeName.ifBlank { "Toko ADA KASIR" },
+                            text = store.storeName.ifBlank { strings.defaultStoreName },
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface,
@@ -279,7 +281,7 @@ fun HomeMenuScreen(
                                 color = BrandGreen.copy(alpha = 0.14f)
                             ) {
                                 Text(
-                                    text = "${PosFormatters.formatRupiah(todaySales)} • ${todayCompleted.size}x",
+                                    text = "${PosFormatters.formatCurrency(todaySales, currency.code)} • ${todayCompleted.size}x",
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.SemiBold,
                                     color = if (isDark) Color(0xFF6EE7B7) else Color(0xFF047857),

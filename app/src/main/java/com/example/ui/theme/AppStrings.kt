@@ -2,6 +2,9 @@ package com.example.ui.theme
 
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
+import com.example.data.model.AppCurrencyCatalog
+import com.example.data.model.AppLanguageCatalog
+import com.example.data.model.PosCurrencyOption
 
 @Immutable
 interface AppStrings {
@@ -353,6 +356,107 @@ interface AppStrings {
     val addConfirmButton: String
     val stockLabelPrefix: String
     val unlimitedStockLabel: String
+
+    // Regions, Multi-Language & Multi-Currency
+    val regionSoutheastAsia: String
+    val regionAsia: String
+    val regionEurope: String
+    val regionRussia: String
+    val regionAmerica: String
+    val regionAustralia: String
+    val currencySectionTitle: String
+    val currencySettingsSubtitle: String
+    val currencyPickerTitle: String
+    val currencySamplePreviewLabel: String
+    val currencySavedMsg: String
+    val languagePickerSubtitle: String
+    val searchLanguageHint: String
+    val searchCurrencyHint: String
+    val aboutOpenHint: String
+    val developerLabel: String
+
+    // Comprehensive Audit Completions
+    val trxShortLabel: String
+    val transactionsPluralLabel: String
+    val includingTaxPrefix: String
+    val reportHppSubtitle: String
+    val marginLabel: String
+    val salesMinusCogsLabel: String
+    val previousLabel: String
+    val nextLabel: String
+    val decreaseQtyLabel: String
+    val increaseQtyLabel: String
+    val monitorWord: String
+    val prefixLabel: String
+    val pinInputLabel: String
+    val defaultStoreName: String
+    val receiptDefaultCustomer: String
+    val receiptSampleItem1: String
+    val receiptSampleItem2: String
+    val receiptDefaultHours: String
+    val receiptDefaultAddress: String
+    val receiptPhonePrefix: String
+    val receiptFilePrefix: String
+    val testPrintHeader: String
+    val testPrintStatusReady: String
+    val defaultCategoryOther: String
+    val discountAmountWord: String
+    val taxManualWord: String
+    val defaultManualTaxWord: String
+    val productCostPriceWord: String
+    val productSellPriceWord: String
+    val expenseAmountWord: String
+    val storePhotoCd: String
+    val businessIconCd: String
+    val supermarketBgCd: String
+
+    // Error Fallbacks
+    val errProductNameEmpty: String
+    val errCategoryNameEmpty: String
+    val errStoreNameEmpty: String
+    val errEmailEmpty: String
+    val errMonitorSelfEmail: String
+    val errExpensesInvalid: String
+    val errInvalidPin: String
+    val errNoMonitorTarget: String
+    val errConnectStoreFailed: String
+    val errCartEmpty: String
+    val errSaveFailed: String
+
+    // Expense Categories
+    val expCatOperational: String
+    val expCatStockPurchase: String
+    val expCatUtilities: String
+    val expCatSalary: String
+    val expCatTransport: String
+    val expCatOther: String
+
+    // Business Icon Options
+    val bizIconStorefront: String
+    val bizIconCafe: String
+    val bizIconRestaurant: String
+    val bizIconFastFood: String
+    val bizIconGrocery: String
+    val bizIconBakery: String
+    val bizIconPharmacy: String
+    val bizIconFashion: String
+    val bizIconElectronics: String
+    val bizIconLaundry: String
+    val bizIconService: String
+
+    // Tutorial Steps
+    val tutorialStep1Title: String
+    val tutorialStep1Body: String
+    val tutorialStep2Title: String
+    val tutorialStep2Body: String
+    val tutorialStep3Title: String
+    val tutorialStep3Body: String
+    val tutorialStep4Title: String
+    val tutorialStep4Body: String
+    val tutorialStep5Title: String
+    val tutorialStep5Body: String
+    val tutorialStep6Title: String
+    val tutorialStep6Body: String
 }
 
 object IndonesianStrings : AppStrings {
@@ -662,6 +766,101 @@ object IndonesianStrings : AppStrings {
     override val addConfirmButton = "Tambahkan"
     override val stockLabelPrefix = "Stok:"
     override val unlimitedStockLabel = "Unlimited"
+
+    override val regionSoutheastAsia = "Asia Tenggara"
+    override val regionAsia = "Asia"
+    override val regionEurope = "Eropa"
+    override val regionRussia = "Rusia"
+    override val regionAmerica = "Amerika"
+    override val regionAustralia = "Australia"
+    override val currencySectionTitle = "Mata Uang"
+    override val currencySettingsSubtitle = "Pilih mata uang dari berbagai negara"
+    override val currencyPickerTitle = "Pilih Mata Uang Toko"
+    override val currencySamplePreviewLabel = "Pratinjau format harga"
+    override val currencySavedMsg = "Mata uang toko berhasil diubah."
+    override val languagePickerSubtitle = "Pilih bahasa tampilan dari berbagai wilayah dunia"
+    override val searchLanguageHint = "Cari bahasa atau negara..."
+    override val searchCurrencyHint = "Cari mata uang, kode, atau negara..."
+    override val aboutOpenHint = "Ketuk kartu untuk melihat info & detail aplikasi"
+    override val developerLabel = "Pengembang"
+
+    override val trxShortLabel = "Trx"
+    override val transactionsPluralLabel = "Transaksi"
+    override val includingTaxPrefix = "Termasuk PPN"
+    override val reportHppSubtitle = "Harga pokok penjualan"
+    override val marginLabel = "Margin"
+    override val salesMinusCogsLabel = "Penjualan - HPP"
+    override val previousLabel = "Sebelumnya"
+    override val nextLabel = "Berikutnya"
+    override val decreaseQtyLabel = "Kurangi"
+    override val increaseQtyLabel = "Tambah"
+    override val monitorWord = "Pemantau"
+    override val prefixLabel = "Prefix"
+    override val pinInputLabel = "PIN (4-6 digit)"
+    override val defaultStoreName = "Toko ADA KASIR"
+    override val receiptDefaultCustomer = "Budi Santoso"
+    override val receiptSampleItem1 = "Beras Premium 5 Kg"
+    override val receiptSampleItem2 = "Air Mineral"
+    override val receiptDefaultHours = "Buka 08.00 - 21.00"
+    override val receiptDefaultAddress = "Jl. Raya Utama No. 12"
+    override val receiptPhonePrefix = "Telp"
+    override val receiptFilePrefix = "Struk"
+    override val testPrintHeader = "TES CETAK PRINTER"
+    override val testPrintStatusReady = "Status: Terhubung & Siap"
+    override val defaultCategoryOther = "Lainnya"
+    override val discountAmountWord = "Nominal"
+    override val taxManualWord = "PPN Manual"
+    override val defaultManualTaxWord = "Nominal PPN Manual Default"
+    override val productCostPriceWord = "Harga Modal"
+    override val productSellPriceWord = "Harga Jual"
+    override val expenseAmountWord = "Nominal"
+    override val storePhotoCd = "Foto toko"
+    override val businessIconCd = "Ikon usaha"
+    override val supermarketBgCd = "Latar belakang toko"
+
+    override val errProductNameEmpty = "Nama produk wajib diisi."
+    override val errCategoryNameEmpty = "Nama kategori wajib diisi."
+    override val errStoreNameEmpty = "Nama toko wajib diisi."
+    override val errEmailEmpty = "Email wajib diisi."
+    override val errMonitorSelfEmail = "Email pemantau tidak boleh sama dengan email akun Kasir."
+    override val errExpensesInvalid = "Nama dan nominal pengeluaran harus valid."
+    override val errInvalidPin = "PIN keamanan Owner harus 4-6 digit angka."
+    override val errNoMonitorTarget = "Pilih toko terlebih dahulu untuk Mode Pemantau."
+    override val errConnectStoreFailed = "Gagal terhubung ke toko pemantau."
+    override val errCartEmpty = "Keranjang masih kosong."
+    override val errSaveFailed = "Gagal menyimpan data."
+
+    override val expCatOperational = "Operasional"
+    override val expCatStockPurchase = "Belanja Stok"
+    override val expCatUtilities = "Listrik & Air"
+    override val expCatSalary = "Gaji & Bonus"
+    override val expCatTransport = "Transportasi"
+    override val expCatOther = "Lainnya"
+
+    override val bizIconStorefront = "Toko / Retail"
+    override val bizIconCafe = "Kafe / Kopi"
+    override val bizIconRestaurant = "Restoran / Warung"
+    override val bizIconFastFood = "Kuliner / Snack"
+    override val bizIconGrocery = "Minimarket / Sembako"
+    override val bizIconBakery = "Roti & Kue"
+    override val bizIconPharmacy = "Apotek / Kesehatan"
+    override val bizIconFashion = "Butik / Fashion"
+    override val bizIconElectronics = "Elektronik / Gadget"
+    override val bizIconLaundry = "Laundry"
+    override val bizIconService = "Jasa / Bengkel"
+
+    override val tutorialStep1Title = "1. Profil Usaha & Ikon Toko"
+    override val tutorialStep1Body = "Atur nama toko, nomor HP, alamat, upload foto toko atau pilih ikon usaha & warna background di menu Pengaturan -> Profil Toko."
+    override val tutorialStep2Title = "2. Kelola Produk & Stok"
+    override val tutorialStep2Body = "Buka menu Produk untuk menambahkan barang, kategori, harga modal & jual, satuan (Pcs, Kg, Liter, dll), serta batas notifikasi stok menipis."
+    override val tutorialStep3Title = "3. Cara Pakai Menu Kasir"
+    override val tutorialStep3Body = "Ketuk produk untuk masuk ke keranjang (ketuk beberapa kali untuk menambah jumlah, angka pada ikon keranjang otomatis bertambah). Buka keranjang untuk atur diskon, PPN, pilih Tunai/QRIS/Transfer, lalu klik Selesaikan Transaksi."
+    override val tutorialStep4Title = "4. Pengaturan PPN, Diskon & Struk"
+    override val tutorialStep4Body = "Atur tarif PPN otomatis/manual & diskon default di kartu PPN & Diskon. Ubah prefix nomor nota, pesan footer, dan sambungkan printer Bluetooth 58mm/80mm di Printer Kasir."
+    override val tutorialStep5Title = "5. Laporan, Pengeluaran & Riwayat"
+    override val tutorialStep5Body = "Pantau omset, modal HPP, laba bersih, catat pengeluaran operasional, serta cetak ulang struk atau proses batal/refund di Riwayat."
+    override val tutorialStep6Title = "6. Hak Akses Owner, Kasir, PIN & Pantau Jarak Jauh"
+    override val tutorialStep6Body = "Di Kelola Pengguna, Owner punya akses penuh & bisa mengatur fitur apa saja yang boleh dibuka Kasir/Karyawan (default hanya transaksi), memasang PIN Keamanan, serta menautkan 1–2 akun Google untuk pantau toko jarak jauh."
 }
 
 object EnglishStrings : AppStrings {
@@ -730,15 +929,15 @@ object EnglishStrings : AppStrings {
     override val discountLabel = "Discount"
     override val discountNone = "No Discount"
     override val discountPercent = "Percentage (%)"
-    override val discountAmount = "Amount (Rp)"
-    override val taxLabel = "Tax (PPN)"
+    override val discountAmount = "Amount"
+    override val taxLabel = "Tax (VAT/Sales Tax)"
     override val taxNone = "No Tax"
     override val taxAuto = "Auto Tax"
-    override val taxManual = "Manual Tax (Rp)"
+    override val taxManual = "Manual Tax"
     override val paymentMethodLabel = "Payment Method"
     override val methodCash = "Cash"
     override val methodBankTransfer = "Bank Transfer"
-    override val methodQris = "QRIS"
+    override val methodQris = "QRIS / QR Pay"
     override val methodOther = "Other"
     override val amountReceivedLabel = "Amount Received"
     override val exactCashButton = "Exact Cash"
@@ -772,8 +971,8 @@ object EnglishStrings : AppStrings {
     override val productSkuLabel = "Product Code / SKU"
     override val productCategoryLabel = "Category"
     override val productUnitLabel = "Unit"
-    override val productCostPriceLabel = "Cost Price (Rp)"
-    override val productSellPriceLabel = "Sell Price (Rp)"
+    override val productCostPriceLabel = "Cost Price"
+    override val productSellPriceLabel = "Sell Price"
     override val productStockLabel = "Stock Quantity"
     override val productMinStockLabel = "Minimum Stock (Optional)"
     override val productDescLabel = "Product Description (Optional)"
@@ -801,7 +1000,7 @@ object EnglishStrings : AppStrings {
     override val cancelRefundWarning = "Transaction status will be updated and product stock will be restored automatically."
     override val reasonOptionalLabel = "Reason (Optional)"
     override val statusCompleted = "Completed"
-    override val statusCancelled = "Cancelled"
+    override val statusCancelled = "Canceled"
     override val statusRefunded = "Refunded"
     override val storeProfileSection = "Store Profile"
     override val storeNameLabel = "Store Name"
@@ -810,13 +1009,13 @@ object EnglishStrings : AppStrings {
     override val addressLabel = "Store Address"
     override val defaultTaxPercentLabel = "Auto Tax Rate (%)"
     override val saveChanges = "Save Changes"
-    override val profileSavedMsg = "Store profile saved and synced."
+    override val profileSavedMsg = "Store profile saved and synchronized."
     override val themeSection = "App Theme"
     override val lightTheme = "Light Theme"
     override val darkTheme = "Dark Theme"
     override val languageSection = "Language"
     override val languageIndonesian = "Bahasa Indonesia"
-    override val languageEnglish = "English"
+    override val languageEnglish = "English (US)"
     override val backupRestoreSection = "Data Backup & Restore"
     override val manualBackupButton = "Manual Backup"
     override val restoreBackupButton = "Restore Data"
@@ -826,20 +1025,20 @@ object EnglishStrings : AppStrings {
     override val backupSuccessMsg = "Backup created and saved successfully."
     override val restoreConfirmTitle = "Confirm Data Restore"
     override val restoreConfirmBody = "Restoring will update your products, categories, transactions, and store profile. Continue?"
-    override val restoreSuccessMsg = "Data restored and synced successfully."
+    override val restoreSuccessMsg = "Data restored and synchronized successfully."
     override val restoreInvalidMsg = "Invalid or corrupted backup file."
     override val aboutSection = "About App"
     override val versionLabel = "App Version"
     override val aboutDescription = "Modern Point of Sale (POS) application to manage cashier transactions, products, stock, and store history with real-time sync."
     override val copyrightText = "© 2026 Rafline Dev. All rights reserved."
     override val googleAccountSection = "Google Account & Sync"
-    override val syncedWithGoogle = "Automatically synced with Google account"
+    override val syncedWithGoogle = "Automatically synchronized with Google account"
     override val signOutButton = "Sign Out"
     override val reportFilterDate = "Date"
     override val reportFilterMonth = "Month"
     override val reportFilterYear = "Year"
     override val reportTotalSales = "Total Sales"
-    override val reportOmset = "Revenue (Omset)"
+    override val reportOmset = "Revenue"
     override val reportHpp = "COGS / Capital"
     override val reportGrossProfit = "Gross Profit"
     override val reportExpensesSummary = "Period Expenses"
@@ -850,7 +1049,7 @@ object EnglishStrings : AppStrings {
     override val editExpense = "Edit Expense"
     override val expenseTitleLabel = "Expense Title"
     override val expenseCategoryLabel = "Expense Category"
-    override val expenseAmountLabel = "Amount (Rp)"
+    override val expenseAmountLabel = "Amount"
     override val expenseNotesLabel = "Notes (Optional)"
     override val expenseDateLabel = "Expense Date"
     override val todayExpensesLabel = "Today's Expenses"
@@ -917,10 +1116,10 @@ object EnglishStrings : AppStrings {
     override val storeIconColorLabel = "Icon Background Color"
     override val changeStorePhotoButton = "Upload / Change Photo"
     override val removeStorePhotoButton = "Use Business Icon"
-    override val taxDiscountTitle = "Tax (PPN) & Discount"
-    override val taxDiscountSubtitle = "Configure auto PPN, manual tax, & default discount"
+    override val taxDiscountTitle = "Tax & Discount"
+    override val taxDiscountSubtitle = "Configure auto tax, manual tax, & default discount"
     override val defaultTaxModeLabel = "Default Cashier Tax Mode"
-    override val defaultManualTaxAmountLabel = "Default Manual Tax (Rp)"
+    override val defaultManualTaxAmountLabel = "Default Manual Tax Amount"
     override val defaultDiscountModeLabel = "Default Cashier Discount Mode"
     override val defaultDiscountValueLabel = "Default Discount Value"
     override val taxDiscountSavedMsg = "Tax & discount settings saved."
@@ -971,6 +1170,143 @@ object EnglishStrings : AppStrings {
     override val addConfirmButton = "Add"
     override val stockLabelPrefix = "Stock:"
     override val unlimitedStockLabel = "Unlimited"
+
+    override val regionSoutheastAsia = "Southeast Asia"
+    override val regionAsia = "Asia"
+    override val regionEurope = "Europe"
+    override val regionRussia = "Russia"
+    override val regionAmerica = "America"
+    override val regionAustralia = "Australia"
+    override val currencySectionTitle = "Currency"
+    override val currencySettingsSubtitle = "Choose store currency from global countries"
+    override val currencyPickerTitle = "Select Store Currency"
+    override val currencySamplePreviewLabel = "Price format preview"
+    override val currencySavedMsg = "Store currency updated."
+    override val languagePickerSubtitle = "Choose display language across global regions"
+    override val searchLanguageHint = "Search language or country..."
+    override val searchCurrencyHint = "Search currency, code, or country..."
+    override val aboutOpenHint = "Tap card to open app & sync details"
+    override val developerLabel = "Developer"
+
+    override val trxShortLabel = "Trx"
+    override val transactionsPluralLabel = "Transactions"
+    override val includingTaxPrefix = "Includes tax"
+    override val reportHppSubtitle = "Cost of goods sold"
+    override val marginLabel = "Margin"
+    override val salesMinusCogsLabel = "Sales - COGS"
+    override val previousLabel = "Previous"
+    override val nextLabel = "Next"
+    override val decreaseQtyLabel = "Decrease"
+    override val increaseQtyLabel = "Increase"
+    override val monitorWord = "Monitor"
+    override val prefixLabel = "Prefix"
+    override val pinInputLabel = "PIN (4-6 digits)"
+    override val defaultStoreName = "ADA KASIR Store"
+    override val receiptDefaultCustomer = "John Doe"
+    override val receiptSampleItem1 = "Premium Rice 5 Kg"
+    override val receiptSampleItem2 = "Mineral Water"
+    override val receiptDefaultHours = "Open 08:00 - 21:00"
+    override val receiptDefaultAddress = "123 Main Street"
+    override val receiptPhonePrefix = "Phone"
+    override val receiptFilePrefix = "Receipt"
+    override val testPrintHeader = "PRINTER TEST PRINT"
+    override val testPrintStatusReady = "Status: Connected & Ready"
+    override val defaultCategoryOther = "Other"
+    override val discountAmountWord = "Amount"
+    override val taxManualWord = "Manual Tax"
+    override val defaultManualTaxWord = "Default Manual Tax"
+    override val productCostPriceWord = "Cost Price"
+    override val productSellPriceWord = "Sell Price"
+    override val expenseAmountWord = "Amount"
+    override val storePhotoCd = "Store photo"
+    override val businessIconCd = "Business icon"
+    override val supermarketBgCd = "Store background illustration"
+
+    override val errProductNameEmpty = "Product name is required."
+    override val errCategoryNameEmpty = "Category name is required."
+    override val errStoreNameEmpty = "Store name is required."
+    override val errEmailEmpty = "Email is required."
+    override val errMonitorSelfEmail = "Monitor email cannot be the same as Cashier email."
+    override val errExpensesInvalid = "Expense title and valid amount are required."
+    override val errInvalidPin = "Owner security PIN must be 4-6 digits."
+    override val errNoMonitorTarget = "Select a store first for Monitor Mode."
+    override val errConnectStoreFailed = "Failed to connect monitor store."
+    override val errCartEmpty = "Cart is empty."
+    override val errSaveFailed = "Failed to save data."
+
+    override val expCatOperational = "Operational"
+    override val expCatStockPurchase = "Stock Purchase"
+    override val expCatUtilities = "Utilities"
+    override val expCatSalary = "Salary & Bonus"
+    override val expCatTransport = "Transport"
+    override val expCatOther = "Other"
+
+    override val bizIconStorefront = "Store / Retail"
+    override val bizIconCafe = "Cafe / Coffee"
+    override val bizIconRestaurant = "Restaurant"
+    override val bizIconFastFood = "Food & Snacks"
+    override val bizIconGrocery = "Grocery / Minimarket"
+    override val bizIconBakery = "Bakery & Pastry"
+    override val bizIconPharmacy = "Pharmacy / Health"
+    override val bizIconFashion = "Fashion / Boutique"
+    override val bizIconElectronics = "Electronics / Gadgets"
+    override val bizIconLaundry = "Laundry"
+    override val bizIconService = "Services / Repair"
+
+    override val tutorialStep1Title = "1. Store Profile & Logo"
+    override val tutorialStep1Body = "Set your store name, phone, address, upload a store photo, or choose a business icon & background color in Settings -> Store Profile."
+    override val tutorialStep2Title = "2. Products & Inventory"
+    override val tutorialStep2Body = "Open Products to add items, categories, cost & selling prices, stock counts, and low-stock alert thresholds."
+    override val tutorialStep3Title = "3. Cashier Checkout"
+    override val tutorialStep3Body = "Tap products to add them to the cart (tap again to increase quantity or choose decimal units like Kg/Liter). Open the blue cart bar at the bottom to add customer name, discount, tax, payment method, and finish the sale."
+    override val tutorialStep4Title = "4. Tax, Discount & Receipts"
+    override val tutorialStep4Body = "Configure auto or manual tax & default discounts in Tax & Discount. Customize receipt prefix (e.g., AK / SHOP), footer message, and pair a 58mm/80mm Bluetooth thermal printer under Cashier Printer."
+    override val tutorialStep5Title = "5. Sales Report, Expenses & History"
+    override val tutorialStep5Body = "Track daily/monthly revenue, COGS, net profit, operational expenses, and reprint or refund past receipts in History."
+    override val tutorialStep6Title = "6. Owner, Cashier Staff, PIN & Remote Monitor"
+    override val tutorialStep6Body = "Switch between Owner (full access) and Cashier/Staff (default transaction-only, customizable features) protected by an Owner Security PIN. Link 1–2 Google accounts to monitor store sales remotely in Monitor Mode."
 }
 
+fun AppStrings.amountWithCurrency(baseLabel: String, currencySymbol: String): String =
+    "$baseLabel ($currencySymbol)"
+
+fun AppStrings.tutorialStepsList(): List<Pair<String, String>> = listOf(
+    tutorialStep1Title to tutorialStep1Body,
+    tutorialStep2Title to tutorialStep2Body,
+    tutorialStep3Title to tutorialStep3Body,
+    tutorialStep4Title to tutorialStep4Body,
+    tutorialStep5Title to tutorialStep5Body,
+    tutorialStep6Title to tutorialStep6Body
+)
+
+fun appStringsForLanguage(languageCode: String?): AppStrings =
+    when (AppLanguageCatalog.normalizeCode(languageCode)) {
+        "id" -> IndonesianStrings
+        "ms" -> MalayStrings
+        "tl" -> FilipinoStrings
+        "vi" -> VietnameseStrings
+        "th" -> ThaiStrings
+        "ja" -> JapaneseStrings
+        "ko" -> KoreanStrings
+        "zh" -> ChineseSimplifiedStrings
+        "hi" -> HindiStrings
+        "en_gb" -> EnglishUkStrings
+        "fr" -> FrenchStrings
+        "de" -> GermanStrings
+        "es" -> SpanishStrings
+        "it" -> ItalianStrings
+        "nl" -> DutchStrings
+        "pt" -> PortugueseStrings
+        "pl" -> PolishStrings
+        "tr" -> TurkishStrings
+        "ru" -> RussianStrings
+        "en" -> EnglishStrings
+        "es_mx" -> SpanishLatamStrings
+        "pt_br" -> PortugueseBrazilStrings
+        "en_au" -> EnglishAuStrings
+        else -> IndonesianStrings
+    }
+
 val LocalAppStrings = staticCompositionLocalOf<AppStrings> { IndonesianStrings }
+
+val LocalAppCurrency = staticCompositionLocalOf<PosCurrencyOption> { AppCurrencyCatalog.fromCode("IDR") }

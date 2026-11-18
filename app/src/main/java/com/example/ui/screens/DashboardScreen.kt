@@ -110,6 +110,7 @@ import com.example.ui.theme.BrandBlue
 import com.example.ui.theme.BrandBlueDark
 import com.example.ui.theme.BrandGreen
 import com.example.ui.theme.JetBrainsMonoFontFamily
+import com.example.ui.theme.LocalAppCurrency
 import com.example.ui.theme.LocalAppStrings
 import com.example.ui.theme.StatusError
 import com.example.ui.theme.StatusSuccess
@@ -149,6 +150,7 @@ fun DashboardScreen(
     modifier: Modifier = Modifier
 ) {
     val strings = LocalAppStrings.current
+    val currency = LocalAppCurrency.current
     val language = store.language
     var showAlertsDialog by remember { mutableStateOf(false) }
     var showOwnerPinDialog by remember { mutableStateOf(false) }
@@ -189,7 +191,7 @@ fun DashboardScreen(
         val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
         PosFormatters.greetingForHour(hour, strings)
     }
-    val displayUser = store.ownerName.ifBlank { userDisplayName.ifBlank { "Kasir" } }
+    val displayUser = store.ownerName.ifBlank { userDisplayName.ifBlank { strings.receiptCashierLabel } }
 
     Column(modifier = modifier.fillMaxSize()) {
         // Pure seamless blue top area (no elevated header card/box seam)
@@ -326,7 +328,7 @@ fun DashboardScreen(
             // Full-bleed animated cartoon supermarket background strictly clipped to bounds below blue header
             Image(
                 painter = painterResource(id = R.drawable.img_supermarket_bg),
-                contentDescription = "Background toko ADA KASIR",
+                contentDescription = strings.supermarketBgCd,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .fillMaxSize()
@@ -393,7 +395,7 @@ fun DashboardScreen(
                                         color = MaterialTheme.colorScheme.onPrimaryContainer
                                     )
                                     Text(
-                                        text = store.storeName.ifBlank { "Toko ADA KASIR" },
+                                        text = store.storeName.ifBlank { strings.defaultStoreName },
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onPrimaryContainer
                                     )
@@ -432,7 +434,7 @@ fun DashboardScreen(
                                 verticalArrangement = Arrangement.spacedBy(3.dp)
                             ) {
                                 Text(
-                                    text = store.storeName.ifBlank { "Toko ADA KASIR" },
+                                    text = store.storeName.ifBlank { strings.defaultStoreName },
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurface,
@@ -492,7 +494,7 @@ fun DashboardScreen(
                     ) {
                         SummaryMetricCard(
                             title = strings.todaySales,
-                            value = PosFormatters.formatRupiah(todayStats.first),
+                            value = PosFormatters.formatCurrency(todayStats.first, currency.code),
                             icon = Icons.AutoMirrored.Rounded.TrendingUp,
                             accentColor = BrandGreen,
                             modifier = Modifier
@@ -501,7 +503,7 @@ fun DashboardScreen(
                         )
                         SummaryMetricCard(
                             title = strings.todayTransactions,
-                            value = "${todayStats.second} Trx",
+                            value = "${todayStats.second} ${strings.trxShortLabel}",
                             icon = Icons.AutoMirrored.Rounded.ReceiptLong,
                             accentColor = BrandBlue,
                             modifier = Modifier
@@ -785,7 +787,7 @@ fun DashboardScreen(
                                 pinError = null
                             }
                         },
-                        label = { Text("PIN (4-6 digit)") },
+                        label = { Text(strings.pinInputLabel) },
                         visualTransformation = PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                         singleLine = true,
@@ -959,6 +961,7 @@ private fun SalesTrendChartCard(
     onSelectPeriod: (DashboardPeriod) -> Unit
 ) {
     val strings = LocalAppStrings.current
+    val currency = LocalAppCurrency.current
     val pct = analytics.percentChange ?: 0.0
     val isUp = pct >= 0.0
     val badgeBg = if (isUp) StatusSuccess.copy(alpha = 0.14f) else StatusError.copy(alpha = 0.14f)
@@ -1038,12 +1041,12 @@ private fun SalesTrendChartCard(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            text = "${inspected.label} (${inspected.transactionCount} trx)",
+                            text = "${inspected.label} (${inspected.transactionCount} ${strings.trxShortLabel})",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                         Text(
-                            text = PosFormatters.formatRupiah(inspected.totalSales),
+                            text = PosFormatters.formatCurrency(inspected.totalSales, currency.code),
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
@@ -1228,6 +1231,7 @@ private fun TopProductsCard(
     onSelectPeriod: (DashboardPeriod) -> Unit
 ) {
     val strings = LocalAppStrings.current
+    val currency = LocalAppCurrency.current
     Card(
         shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -1305,7 +1309,7 @@ private fun TopProductsCard(
                             )
                         }
                         Text(
-                            text = PosFormatters.formatRupiah(item.totalValue),
+                            text = PosFormatters.formatCurrency(item.totalValue, currency.code),
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
@@ -1327,6 +1331,7 @@ private fun RecentTransactionRow(
     onClick: () -> Unit
 ) {
     val strings = LocalAppStrings.current
+    val currency = LocalAppCurrency.current
     val statusColor = when (TransactionStatus.fromCode(transaction.status)) {
         TransactionStatus.COMPLETED -> StatusSuccess
         TransactionStatus.CANCELLED -> StatusError
@@ -1359,7 +1364,7 @@ private fun RecentTransactionRow(
         Spacer(Modifier.width(10.dp))
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(
-                text = PosFormatters.formatRupiah(transaction.totalAmount),
+                text = PosFormatters.formatCurrency(transaction.totalAmount, currency.code),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface

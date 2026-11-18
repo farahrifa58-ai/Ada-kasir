@@ -79,12 +79,13 @@ fun onGoogleSignInClicked(
     onAuthSuccess: () -> Unit,
     onAuthError: (String) -> Unit,
     onAuthCancelled: () -> Unit,
-    scope: CoroutineScope
+    scope: CoroutineScope,
+    fallbackErrorMsg: String = ""
 ) {
     val clientId = try {
         context.getString(R.string.default_web_client_id)
     } catch (_: Exception) {
-        onAuthError("Google Sign-In configuration missing: default_web_client_id not found")
+        onAuthError(fallbackErrorMsg.ifBlank { "Sign-In config missing" })
         return
     }
 
@@ -104,14 +105,14 @@ fun onGoogleSignInClicked(
                 Firebase.auth.signInWithCredential(authCredential).await()
                 onAuthSuccess()
             } else {
-                onAuthError("Unexpected credential type")
+                onAuthError(fallbackErrorMsg)
             }
         } catch (e: GetCredentialCancellationException) {
             Log.w("Auth", "Google Sign-In cancelled or dismissed: ${e.message}", e)
             onAuthCancelled()
         } catch (e: Exception) {
             Log.e("Auth", "Google Sign-In failed", e)
-            onAuthError(e.localizedMessage ?: "Sign in failed")
+            onAuthError(e.localizedMessage ?: fallbackErrorMsg)
         }
     }
 }
@@ -203,7 +204,7 @@ fun AuthScreen(
             // Hero Illustration
             Image(
                 painter = painterResource(id = R.drawable.img_pos_login_hero),
-                contentDescription = "ADA KASIR POS illustration",
+                contentDescription = strings.appName,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -329,7 +330,8 @@ fun AuthScreen(
                                     onAuthSuccess = handleSuccess,
                                     onAuthError = handleError,
                                     onAuthCancelled = handleCancel,
-                                    scope = scope
+                                    scope = scope,
+                                    fallbackErrorMsg = strings.loginErrorFallback
                                 )
                             }
                         },
